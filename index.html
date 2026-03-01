@@ -70,14 +70,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var
 
 /* SEATS */
 .seat{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:10}
-.seat-0{bottom:-36px;left:50%;transform:translateX(-50%)}.seat-1{left:-16px;top:50%;transform:translateY(-50%)}.seat-2{top:-36px;left:50%;transform:translateX(-50%)}.seat-3{right:-16px;top:50%;transform:translateY(-50%)}
+.seat-0{bottom:-36px;left:50%;transform:translateX(-50%)}.seat-1{left:-16px;top:50%;transform:translateY(-50%)}.seat-2{top:-36px;left:30%;transform:translateX(-50%)}.seat-3{top:-36px;right:30%;transform:translateX(50%)}.seat-4{right:-16px;top:50%;transform:translateY(-50%)}
 .seat-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2c3e50,#34495e);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;border:3px solid rgba(255,255,255,.2);position:relative}
 .seat-avatar.active{border-color:var(--gold);box-shadow:0 0 16px rgba(212,165,23,.5);animation:pulse-glow 1.5s infinite}.seat-avatar.folded{opacity:.35}
 @keyframes pulse-glow{0%,100%{box-shadow:0 0 16px rgba(212,165,23,.3)}50%{box-shadow:0 0 28px rgba(212,165,23,.6)}}
 .seat-name{font-size:.75rem;font-weight:600;margin-top:4px;padding:2px 8px;background:rgba(0,0,0,.6);border-radius:6px;white-space:nowrap}
 .seat-chips{font-size:.65rem;color:var(--gold);margin-top:2px}.seat-buyin{font-size:.55rem;color:#ef5350;margin-top:1px;font-weight:600}
 .seat-bet{position:absolute;font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.7);padding:2px 8px;border-radius:6px;white-space:nowrap}
-.seat-0 .seat-bet{top:-24px}.seat-1 .seat-bet{right:-70px}.seat-2 .seat-bet{bottom:-24px}.seat-3 .seat-bet{left:-70px}
+.seat-0 .seat-bet{top:-24px}.seat-1 .seat-bet{right:-70px}.seat-2 .seat-bet{bottom:-24px}.seat-3 .seat-bet{bottom:-24px}.seat-4 .seat-bet{left:-70px}
 .seat-cards{display:flex;gap:3px;margin-top:4px}
 .exchange-badges{display:flex;gap:3px;margin-top:3px;justify-content:center;flex-wrap:wrap}
 .ex-badge{font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:4px;line-height:1.2;white-space:nowrap}
@@ -112,7 +112,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var
 .toast{padding:10px 20px;background:rgba(15,15,31,.95);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-size:.85rem;animation:toast-in .3s ease,toast-out .3s ease 2s forwards;backdrop-filter:blur(20px)}
 @keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px)}.modal-overlay.active{display:flex}
-.result-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.2);border-radius:20px;padding:28px;text-align:center;width:min(440px,92vw);animation:modal-pop .3s ease}
+.result-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.2);border-radius:20px;padding:28px;text-align:center;width:min(440px,92vw);max-height:85vh;overflow-y:auto;animation:modal-pop .3s ease}
 @keyframes modal-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 .result-modal h2{font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:800;color:var(--gold);margin-bottom:16px}
 .result-hands{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
@@ -146,7 +146,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var
   <div class="lobby-card">
     <h3>게임 참가</h3>
     <div class="input-group"><label>닉네임</label><input type="text" id="nickname" placeholder="이름을 입력하세요" maxlength="8"></div>
-    <div class="input-group"><label>인원수</label><select id="player-count"><option value="2">2명</option><option value="3">3명</option><option value="4" selected>4명</option></select></div>
+    <div class="input-group"><label>인원수</label><select id="player-count"><option value="2">2명</option><option value="3">3명</option><option value="4" selected>4명</option><option value="5">5명</option></select></div>
     <button class="btn btn-primary" onclick="doCreate()">🎴 방 만들기</button>
     <div class="divider">또는</div>
     <div class="input-group"><label>방 코드</label><input type="text" id="room-code-input" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase"></div>
@@ -260,10 +260,11 @@ function doExchange(){
   preselectedCards=new Set();
   sendAction({type:'exchange',indices:idx});
 }
-function sendNext(){send({type:'nextRound'})}
+function sendNext(){document.getElementById('result-modal').classList.remove('active');send({type:'nextRound'})}
 
 // ========== STATE HANDLER ==========
 function handleState(s){
+  document.getElementById('result-modal').classList.remove('active');
   if(s.state==='waiting'){
     showScreen('waiting-room');
     renderWaitingRoom(s);
@@ -370,7 +371,7 @@ function showResult(msg){
 }
 
 // ========== HELPERS ==========
-function getSeatPos(n,myIdx){const p={},m={2:[0,2],3:[0,1,3],4:[0,1,2,3]};for(let i=0;i<n;i++)p[i]=m[n][(i-myIdx+n)%n];return p}
+function getSeatPos(n,myIdx){const p={},m={2:[0,2],3:[0,1,4],4:[0,1,2,4],5:[0,1,2,3,4]};for(let i=0;i<n;i++)p[i]=m[n][(i-myIdx+n)%n];return p}
 function cardEl(c){const r=c.suit==='♥'||c.suit==='♦';return`<div class="card ${r?'red':'black'}"><span class="suit">${c.suit}</span>${c.rank}</div>`}
 function toast(msg){const c=document.getElementById('toast-container'),el=document.createElement('div');el.className='toast';el.textContent=msg;c.appendChild(el);setTimeout(()=>el.remove(),2500)}
 
