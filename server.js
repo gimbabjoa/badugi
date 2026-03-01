@@ -334,7 +334,11 @@ class Room {
   nextRound() {
     this.round++;
     this.dealerIdx = (this.dealerIdx + 1) % this.players.length;
-    // Auto re-buyin with same amount
+    // 이전 라운드 잔여 칩 정산 (남은 칩만큼 바인에서 차감)
+    this.players.forEach((p, i) => {
+      this.buyinTotals[i] = (this.buyinTotals[i] || 0) - p.chips;
+    });
+    // 새로 바인
     this.applyBuyin(this.buyinAmount);
     this.broadcast({ type: 'toast', msg: `리바인 ${this.buyinAmount >= 10000 ? (this.buyinAmount/10000)+'만' : this.buyinAmount.toLocaleString()}원` });
     this.broadcast({ type: 'sound', sound: 'chip' });
