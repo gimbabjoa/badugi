@@ -486,7 +486,7 @@ function handleConnection(ws) {
         break;
       }
     }
-  };
+  });
 
   ws.on('close', () => {
     if (playerRoom && playerId) {
@@ -500,7 +500,7 @@ function handleConnection(ws) {
         playerRoom.broadcastState();
       }
     }
-  };
+  });
 }
 
 // ===== START =====
