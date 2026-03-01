@@ -334,14 +334,19 @@ class Room {
   nextRound() {
     this.round++;
     this.dealerIdx = (this.dealerIdx + 1) % this.players.length;
-    // 이전 라운드 잔여 칩 정산 (남은 칩만큼 바인에서 차감)
+    // 칩 0인 사람만 리바인
+    let rebuyNames = [];
     this.players.forEach((p, i) => {
-      this.buyinTotals[i] = (this.buyinTotals[i] || 0) - p.chips;
+      if (p.chips <= 0) {
+        p.chips = this.buyinAmount;
+        this.buyinTotals[i] = (this.buyinTotals[i] || 0) + this.buyinAmount;
+        rebuyNames.push(p.name);
+      }
     });
-    // 새로 바인
-    this.applyBuyin(this.buyinAmount);
-    this.broadcast({ type: 'toast', msg: `리바인 ${this.buyinAmount >= 10000 ? (this.buyinAmount/10000)+'만' : this.buyinAmount.toLocaleString()}원` });
-    this.broadcast({ type: 'sound', sound: 'chip' });
+    if (rebuyNames.length > 0) {
+      this.broadcast({ type: 'toast', msg: `${rebuyNames.join(', ')} 리바인` });
+      this.broadcast({ type: 'sound', sound: 'chip' });
+    }
     this.startRound();
   }
 
