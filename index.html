@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>바둑이 온라인</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--felt:#0a5c2f;--felt-dark:#073d1f;--felt-light:#0d7a3e;--gold:#d4a517;--gold-light:#f0c94d;--bg-dark:#1a1a2e;--bg-darker:#0f0f1f;--text:#ecf0f1;--text-dim:#7f8c8d;--success:#2ecc71;--accent:#e74c3c}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var(--text);height:100vh;height:100dvh;overflow:hidden}
+.screen{display:none;width:100vw;height:100vh;height:100dvh}.screen.active{display:flex}
+
+/* LOBBY */
+#lobby{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg-darker) 0%,#16213e 50%,var(--bg-darker) 100%)}
+.lobby-title{font-family:'Outfit',sans-serif;font-size:clamp(2.5rem,8vw,4rem);font-weight:900;letter-spacing:-2px;background:linear-gradient(135deg,var(--gold),var(--gold-light),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.lobby-subtitle{font-size:.9rem;color:var(--text-dim);margin-bottom:40px;letter-spacing:4px;text-transform:uppercase}
+.lobby-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:32px;width:min(400px,90vw);backdrop-filter:blur(20px)}
+.lobby-card h3{font-family:'Outfit',sans-serif;font-size:1rem;font-weight:600;color:var(--gold);margin-bottom:20px;text-transform:uppercase;letter-spacing:2px}
+.input-group{margin-bottom:14px}.input-group label{display:block;font-size:.75rem;color:var(--text-dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px}
+.input-group input,.input-group select{width:100%;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-size:1rem;font-family:inherit;outline:none;transition:border-color .2s}
+.input-group input:focus,.input-group select:focus{border-color:var(--gold)}
+.input-group select option{background:var(--bg-dark)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border:none;border-radius:12px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;width:100%;margin-top:8px}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#b8860b);color:#000;box-shadow:0 4px 16px rgba(212,165,23,.3)}.btn-primary:hover{transform:translateY(-1px)}
+.btn-secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.15)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.divider{display:flex;align-items:center;gap:16px;margin:20px 0;color:var(--text-dim);font-size:.8rem}.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+.conn-status{font-size:.7rem;text-align:center;margin-top:12px;padding:6px;border-radius:8px}
+.conn-status.ok{color:var(--success);background:rgba(46,204,113,.1)}
+.conn-status.err{color:var(--accent);background:rgba(231,76,60,.1)}
+
+/* WAITING */
+#waiting-room{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg-darker),#16213e)}
+.room-code{font-family:'Outfit',sans-serif;font-size:3rem;font-weight:800;color:var(--gold);letter-spacing:8px}
+.room-code-label{font-size:.85rem;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:2px;text-align:center}
+.players-list{display:flex;flex-direction:column;gap:8px;width:min(380px,90vw);margin:24px 0}
+.pl-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px}
+.pl-item.host{border-color:var(--gold);background:rgba(212,165,23,.06)}
+.pl-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2c3e50,#34495e);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem}
+.pl-name{font-weight:600;flex:1}.pl-badge{font-size:.7rem;padding:2px 8px;border-radius:6px;font-weight:600}
+.pl-badge.host-badge{background:rgba(212,165,23,.2);color:var(--gold)}
+.pl-badge.you-badge{background:rgba(46,204,113,.2);color:var(--success)}
+.copy-link-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:var(--text);padding:10px 20px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:.9rem;margin-bottom:12px;transition:all .2s}
+.copy-link-btn:hover{background:rgba(255,255,255,.1)}
+.waiting-hint{font-size:.8rem;color:var(--text-dim);margin-top:16px;text-align:center}
+
+/* BUYIN */
+.buyin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:250;align-items:center;justify-content:center;backdrop-filter:blur(4px)}.buyin-overlay.active{display:flex}
+.buyin-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.25);border-radius:20px;padding:32px;text-align:center;width:min(360px,88vw);animation:modal-pop .3s ease}
+.buyin-modal h3{font-family:'Outfit',sans-serif;font-size:1.2rem;font-weight:800;color:var(--gold);margin-bottom:6px}
+.buyin-modal .buyin-sub{font-size:.8rem;color:var(--text-dim);margin-bottom:20px}
+.buyin-options{display:flex;gap:12px;justify-content:center;margin-bottom:16px}
+.buyin-opt{flex:1;padding:20px 10px;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s;text-align:center}
+.buyin-opt:hover{border-color:rgba(212,165,23,.4);background:rgba(212,165,23,.06)}
+.buyin-opt.selected{border-color:var(--gold);background:rgba(212,165,23,.12);box-shadow:0 0 16px rgba(212,165,23,.2)}
+.buyin-opt .buyin-amount{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:800;color:var(--gold-light)}
+.buyin-opt .buyin-label{font-size:.75rem;color:var(--text-dim);margin-top:4px}
+
+/* GAME TABLE */
+#game-table{flex-direction:column;align-items:center;background:var(--bg-darker);position:relative}
+.game-info-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:16px;padding:8px 20px;background:rgba(15,15,31,.9);border:1px solid rgba(255,255,255,.06);border-radius:12px;z-index:100;font-size:.8rem;white-space:nowrap}
+.game-info-item{display:flex;align-items:center;gap:5px}.game-info-item .label{color:var(--text-dim);font-size:.7rem;text-transform:uppercase;letter-spacing:1px}.game-info-item .value{font-family:'Outfit',sans-serif;font-weight:700;color:var(--gold)}
+.table-area{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding-top:44px;position:relative}
+.table-felt{position:relative;width:min(780px,92vw);height:min(400px,46vh);background:radial-gradient(ellipse at center,var(--felt-light) 0%,var(--felt) 40%,var(--felt-dark) 100%);border-radius:45%;border:10px solid #2c1810;box-shadow:inset 0 0 50px rgba(0,0,0,.4),0 0 0 3px #1a0f08,0 0 0 7px #3d2517,0 16px 50px rgba(0,0,0,.5);overflow:visible}
+.table-felt::before{content:'';position:absolute;inset:6px;border:2px solid rgba(212,165,23,.12);border-radius:45%;pointer-events:none}
+.pot-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:5}.pot-label{font-size:.65rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:2px}
+.pot-amount{font-family:'Outfit',sans-serif;font-size:clamp(1.4rem,4vw,2rem);font-weight:800;color:var(--gold-light);text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.exchange-info{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);text-align:center;color:rgba(255,255,255,.6);font-size:.8rem;z-index:5}.exchange-round-text{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold-light)}
+
+/* SEATS */
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:10}
+.seat-0{bottom:-36px;left:50%;transform:translateX(-50%)}.seat-1{left:-16px;top:50%;transform:translateY(-50%)}.seat-2{top:-36px;left:50%;transform:translateX(-50%)}.seat-3{right:-16px;top:50%;transform:translateY(-50%)}
+.seat-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2c3e50,#34495e);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;border:3px solid rgba(255,255,255,.2);position:relative}
+.seat-avatar.active{border-color:var(--gold);box-shadow:0 0 16px rgba(212,165,23,.5);animation:pulse-glow 1.5s infinite}.seat-avatar.folded{opacity:.35}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 16px rgba(212,165,23,.3)}50%{box-shadow:0 0 28px rgba(212,165,23,.6)}}
+.seat-name{font-size:.75rem;font-weight:600;margin-top:4px;padding:2px 8px;background:rgba(0,0,0,.6);border-radius:6px;white-space:nowrap}
+.seat-chips{font-size:.65rem;color:var(--gold);margin-top:2px}.seat-buyin{font-size:.55rem;color:#ef5350;margin-top:1px;font-weight:600}
+.seat-bet{position:absolute;font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.7);padding:2px 8px;border-radius:6px;white-space:nowrap}
+.seat-0 .seat-bet{top:-24px}.seat-1 .seat-bet{right:-70px}.seat-2 .seat-bet{bottom:-24px}.seat-3 .seat-bet{left:-70px}
+.seat-cards{display:flex;gap:3px;margin-top:4px}
+.exchange-badges{display:flex;gap:3px;margin-top:3px;justify-content:center;flex-wrap:wrap}
+.ex-badge{font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:4px;line-height:1.2;white-space:nowrap}
+.ex-badge.morning{background:rgba(255,152,0,.25);color:#ffb74d;border:1px solid rgba(255,152,0,.35)}.ex-badge.noon{background:rgba(33,150,243,.25);color:#64b5f6;border:1px solid rgba(33,150,243,.35)}.ex-badge.evening{background:rgba(156,39,176,.25);color:#ce93d8;border:1px solid rgba(156,39,176,.35)}
+.dealer-chip{position:absolute;width:22px;height:22px;background:var(--gold);color:#000;border-radius:50%;font-size:.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.3);z-index:15;top:-6px;right:-6px}
+
+/* CARDS */
+.card{width:44px;height:62px;border-radius:6px;background:#f5f0e8;border:1px solid rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .2s,box-shadow .2s;user-select:none;cursor:default;flex-shrink:0}
+.card .suit{font-size:.65rem}.card.red{color:#c0392b}.card.black{color:#2c3e50}
+.card.back{background:linear-gradient(135deg,#1a3a5c,#0d2137);border-color:#0a1929}.card.back::after{content:'🂠';font-size:1.4rem;opacity:.25}
+.card.selectable{cursor:pointer}.card.selectable:hover{transform:translateY(-6px);box-shadow:0 6px 16px rgba(0,0,0,.3)}
+.card.selected{transform:translateY(-10px);box-shadow:0 6px 16px rgba(212,165,23,.4);border-color:var(--gold);outline:2px solid var(--gold)}
+.card.preselect{cursor:pointer}.card.preselect:hover{transform:translateY(-5px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.card.preselected{transform:translateY(-8px);box-shadow:0 4px 12px rgba(255,255,255,.15);border-color:rgba(255,255,255,.35);outline:2px dashed rgba(255,255,255,.3)}
+.my-hand-area{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
+.my-hand{display:flex;gap:8px;justify-content:center}.my-hand .card{width:64px;height:90px;font-size:1.2rem;border-radius:8px}.my-hand .card .suit{font-size:.9rem}
+.hand-rank-label{font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.6);padding:3px 12px;border-radius:6px;margin-top:4px}
+.my-exchange-badges{display:flex;gap:4px;margin-top:4px}.my-exchange-badges .ex-badge{font-size:.7rem;padding:3px 8px}
+
+/* ACTION */
+.action-panel{display:flex;gap:8px;padding:10px 16px;background:rgba(15,15,31,.92);border:1px solid rgba(255,255,255,.08);border-radius:16px;backdrop-filter:blur(20px);align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+.action-btn{padding:10px 18px;border:none;border-radius:10px;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}.action-btn:disabled{opacity:.3;cursor:not-allowed}
+.action-btn.fold{background:rgba(255,255,255,.08);color:var(--text)}.action-btn.fold:hover:not(:disabled){background:rgba(231,76,60,.3)}
+.action-btn.check{background:rgba(46,204,113,.15);color:var(--success);border:1px solid rgba(46,204,113,.3)}.action-btn.check:hover:not(:disabled){background:rgba(46,204,113,.25)}
+.action-btn.call{background:rgba(52,152,219,.15);color:#3498db;border:1px solid rgba(52,152,219,.3)}.action-btn.call:hover:not(:disabled){background:rgba(52,152,219,.25)}
+.action-btn.raise{background:linear-gradient(135deg,var(--gold),#b8860b);color:#000}.action-btn.raise:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(212,165,23,.3)}
+.action-btn.exchange{background:linear-gradient(135deg,#8e44ad,#6c3483);color:#fff}.action-btn.exchange:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(142,68,173,.3)}
+.raise-input{width:70px;padding:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-size:.9rem;font-family:'Outfit',sans-serif;font-weight:600;text-align:center;outline:none}.raise-input:focus{border-color:var(--gold)}
+
+/* TOAST / MODAL */
+.toast-container{position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{padding:10px 20px;background:rgba(15,15,31,.95);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-size:.85rem;animation:toast-in .3s ease,toast-out .3s ease 2s forwards;backdrop-filter:blur(20px)}
+@keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px)}.modal-overlay.active{display:flex}
+.result-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.2);border-radius:20px;padding:28px;text-align:center;width:min(440px,92vw);animation:modal-pop .3s ease}
+@keyframes modal-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.result-modal h2{font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:800;color:var(--gold);margin-bottom:16px}
+.result-hands{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.result-hand{display:flex;align-items:center;gap:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;flex-wrap:wrap}
+.result-hand.winner{background:rgba(212,165,23,.12);border:1px solid rgba(212,165,23,.3)}
+.result-hand .rh-name{font-weight:700;min-width:44px;text-align:left;font-size:.85rem}
+.result-hand .rh-cards{display:flex;gap:3px;flex:1}.result-hand .rh-cards .card{width:34px;height:48px;font-size:.65rem;border-radius:4px}.result-hand .rh-cards .card .suit{font-size:.5rem}
+.result-hand .rh-ex{font-size:.6rem;color:var(--text-dim);display:flex;gap:2px}
+.result-hand .rh-rank{font-size:.7rem;color:var(--gold);min-width:60px;text-align:right}
+.sound-toggle{position:fixed;top:10px;right:10px;z-index:200;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:.8rem;cursor:pointer;font-family:inherit;transition:all .2s}.sound-toggle:hover{background:rgba(255,255,255,.12)}
+
+@media(max-width:768px){
+  .game-info-bar{gap:8px;padding:6px 12px;font-size:.7rem}.game-info-item .label{font-size:.6rem}
+  .table-felt{width:96vw;height:42vh;border-width:6px}
+  .seat-avatar{width:40px;height:40px;font-size:1rem}.seat-name{font-size:.65rem;padding:1px 6px}.seat-chips{font-size:.6rem}
+  .card{width:34px;height:48px;font-size:.7rem;border-radius:4px}.card .suit{font-size:.5rem}
+  .my-hand .card{width:54px;height:76px;font-size:1rem;border-radius:6px}.my-hand .card .suit{font-size:.8rem}
+  .action-panel{padding:8px 10px;gap:6px}.action-btn{padding:8px 14px;font-size:.8rem}.raise-input{width:56px;padding:7px;font-size:.8rem}
+  .lobby-card{padding:24px;width:92vw}.ex-badge{font-size:.5rem;padding:1px 4px}.seat-1{left:-8px}.seat-3{right:-8px}
+}
+@media(max-width:400px){.my-hand .card{width:48px;height:66px;font-size:.9rem}.table-felt{height:36vh}}
+</style>
+</head>
+<body>
+<button class="sound-toggle" id="sound-toggle" onclick="toggleSound()">🔊 ON</button>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen active">
+  <h1 class="lobby-title">BADUGI</h1>
+  <p class="lobby-subtitle">온라인 멀티플레이어</p>
+  <div class="lobby-card">
+    <h3>게임 참가</h3>
+    <div class="input-group"><label>닉네임</label><input type="text" id="nickname" placeholder="이름을 입력하세요" maxlength="8"></div>
+    <div class="input-group"><label>인원수</label><select id="player-count"><option value="2">2명</option><option value="3">3명</option><option value="4" selected>4명</option></select></div>
+    <button class="btn btn-primary" onclick="doCreate()">🎴 방 만들기</button>
+    <div class="divider">또는</div>
+    <div class="input-group"><label>방 코드</label><input type="text" id="room-code-input" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase"></div>
+    <button class="btn btn-secondary" onclick="doJoin()">참가하기</button>
+    <div class="conn-status" id="conn-status"></div>
+  </div>
+</div>
+
+<!-- WAITING -->
+<div id="waiting-room" class="screen">
+  <div class="room-code-label">방 코드 (친구에게 공유!)</div>
+  <div class="room-code" id="display-room-code">-</div>
+  <div class="players-list" id="players-list"></div>
+  <button class="copy-link-btn" onclick="copyCode()">📋 방 코드 복사</button>
+  <button class="btn btn-primary" id="start-btn" style="width:280px" onclick="showBuyin()" disabled>게임 시작 (방장만)</button>
+  <div class="waiting-hint" id="waiting-hint">친구들이 접속할 때까지 대기 중...</div>
+</div>
+
+<!-- GAME TABLE -->
+<div id="game-table" class="screen">
+  <div class="game-info-bar">
+    <div class="game-info-item"><span class="label">라운드</span><span class="value" id="round-num">1</span></div>
+    <div class="game-info-item"><span class="label">교환</span><span class="value" id="exchange-num">0/3</span></div>
+    <div class="game-info-item"><span class="label">블라인드</span><span class="value" id="blind-info">50/100</span></div>
+    <div class="game-info-item"><span class="label">내 칩</span><span class="value" id="my-chips">-</span></div>
+    <div class="game-info-item"><span class="label">내 바인</span><span class="value" id="my-buyin" style="color:#ef5350">0</span></div>
+  </div>
+  <div class="table-area"><div class="table-felt" id="table-felt"><div class="pot-display"><div class="pot-label">POT</div><div class="pot-amount" id="pot-amount">0</div></div><div class="exchange-info" id="exchange-info"></div></div></div>
+  <div class="my-hand-area" id="my-hand-area"></div>
+  <div class="action-panel" id="action-panel" style="display:none">
+    <button class="action-btn fold" onclick="sendAction({type:'fold'})">폴드</button>
+    <button class="action-btn check" id="btn-check" onclick="sendAction({type:'check'})">체크</button>
+    <button class="action-btn call" id="btn-call" onclick="sendAction({type:'call'})" style="display:none">콜 <span id="call-amount"></span></button>
+    <input type="number" class="raise-input" id="raise-amount" placeholder="금액" min="0" step="100">
+    <button class="action-btn raise" onclick="sendAction({type:'raise',amount:parseInt(document.getElementById('raise-amount').value)||100})">레이즈</button>
+    <div style="width:1px;height:24px;background:rgba(255,255,255,.1);margin:0 2px"></div>
+    <button class="action-btn exchange" id="btn-exchange" onclick="doExchange()" style="display:none">교환</button>
+    <button class="action-btn exchange" id="btn-stay" onclick="sendAction({type:'exchange',indices:[]})" style="display:none">스테이</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<div class="buyin-overlay" id="buyin-modal">
+  <div class="buyin-modal">
+    <h3>💰 바인 선택</h3>
+    <div class="buyin-sub">참가 금액을 선택하세요</div>
+    <div class="buyin-options">
+      <div class="buyin-opt selected" data-amount="10000" onclick="selBuyin(this,10000)"><div class="buyin-amount">1만</div><div class="buyin-label">기본</div></div>
+      <div class="buyin-opt" data-amount="20000" onclick="selBuyin(this,20000)"><div class="buyin-amount">2만</div><div class="buyin-label">더블</div></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:4px" onclick="confirmBuyin()">시작!</button>
+  </div>
+</div>
+<div class="modal-overlay" id="result-modal">
+  <div class="result-modal"><h2 id="result-title">결과</h2><div class="result-hands" id="result-hands"></div>
+    <button class="btn btn-primary" style="width:auto;padding:12px 40px" id="next-round-btn" onclick="sendNext()">다음 라운드</button>
+  </div>
+</div>
+
+<script>
+// ========== SOUND ==========
+const AudioCtx=window.AudioContext||window.webkitAudioContext;let audioCtx=null,soundOn=true;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function toggleSound(){soundOn=!soundOn;document.getElementById('sound-toggle').textContent=soundOn?'🔊 ON':'🔇 OFF'}
+function playSound(type){if(!soundOn)return;initAudio();if(audioCtx.state==='suspended')audioCtx.resume();const t=audioCtx.currentTime;const o=(f,s,d,v=.12,w='sine')=>{const x=audioCtx.createOscillator(),g=audioCtx.createGain();x.type=w;x.frequency.setValueAtTime(f,t+s);x.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(v,t+s);g.gain.exponentialRampToValueAtTime(.001,t+s+d);x.start(t+s);x.stop(t+s+d)};switch(type){case'card':o(800,0,.06);o(200,.02,.04,.08);break;case'chip':o(2400,0,.05,.1,'triangle');o(1200,.03,.06,.06,'triangle');break;case'fold':o(150,0,.15,.15);break;case'check':o(600,0,.04,.08);break;case'raise':o(600,0,.07,.1,'triangle');o(900,.06,.07,.1,'triangle');o(1200,.12,.07,.1,'triangle');break;case'win':[523,659,784,1047].forEach((f,i)=>o(f,i*.11,.28,.1,'triangle'));break;case'deal':for(let i=0;i<4;i++)setTimeout(()=>playSound('card'),i*80);break;case'exchange':o(400,0,.05,.06,'sawtooth');o(800,.04,.06,.06,'sawtooth');break;case'turn':o(880,0,.12,.07);break}}
+document.addEventListener('click',()=>initAudio(),{once:true});
+
+// ========== WEBSOCKET ==========
+let ws=null, myId=null, myIdx=-1, isHost=false, roomCode='', gameState=null;
+let preselectedCards=new Set(), selectedBuyin=10000;
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(`${proto}//${location.host}`);
+  ws.onopen=()=>{document.getElementById('conn-status').className='conn-status ok';document.getElementById('conn-status').textContent='✓ 서버 연결됨'};
+  ws.onclose=()=>{document.getElementById('conn-status').className='conn-status err';document.getElementById('conn-status').textContent='✗ 서버 연결 끊김 — 새로고침하세요';myId=null};
+  ws.onerror=()=>{};
+  ws.onmessage=(e)=>{
+    const msg=JSON.parse(e.data);
+    switch(msg.type){
+      case'created':roomCode=msg.roomCode;myId=msg.playerId;isHost=true;showScreen('waiting-room');document.getElementById('display-room-code').textContent=roomCode;break;
+      case'joined':roomCode=msg.roomCode;myId=msg.playerId;isHost=false;showScreen('waiting-room');document.getElementById('display-room-code').textContent=roomCode;break;
+      case'error':toast(msg.msg);break;
+      case'state':gameState=msg;myIdx=msg.myIndex;handleState(msg);break;
+      case'toast':toast(msg.msg);break;
+      case'sound':playSound(msg.sound);break;
+      case'turn':if(msg.player===myIdx)playSound('turn');break;
+      case'roundEnd':showResult(msg);break;
+    }
+  };
+}
+
+function send(msg){if(ws&&ws.readyState===1)ws.send(JSON.stringify(msg))}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+// ========== LOBBY ACTIONS ==========
+function doCreate(){const n=document.getElementById('nickname').value.trim();if(!n){toast('닉네임을 입력하세요');return}send({type:'create',name:n,maxPlayers:parseInt(document.getElementById('player-count').value)})}
+function doJoin(){const n=document.getElementById('nickname').value.trim(),c=document.getElementById('room-code-input').value.trim();if(!n){toast('닉네임을 입력하세요');return}if(!c){toast('방 코드를 입력하세요');return}send({type:'join',name:n,roomCode:c})}
+function copyCode(){navigator.clipboard.writeText(roomCode).then(()=>toast('방 코드 복사됨!'))}
+
+// ========== BUYIN ==========
+function showBuyin(){document.getElementById('buyin-modal').classList.add('active')}
+function selBuyin(el,amt){document.querySelectorAll('.buyin-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');selectedBuyin=amt}
+function confirmBuyin(){document.getElementById('buyin-modal').classList.remove('active');send({type:'buyin',amount:selectedBuyin})}
+
+// ========== GAME ACTIONS ==========
+function sendAction(action){send({type:'action',action})}
+function doExchange(){
+  const sel=document.querySelectorAll('.my-hand .card.selected');
+  const idx=sel.length>0?Array.from(sel).map(el=>parseInt(el.dataset.index)):Array.from(preselectedCards);
+  preselectedCards=new Set();
+  sendAction({type:'exchange',indices:idx});
+}
+function sendNext(){send({type:'nextRound'})}
+
+// ========== STATE HANDLER ==========
+function handleState(s){
+  if(s.state==='waiting'){
+    showScreen('waiting-room');
+    renderWaitingRoom(s);
+  }else{
+    showScreen('game-table');
+    renderGame(s);
+  }
+}
+
+function renderWaitingRoom(s){
+  const list=document.getElementById('players-list');list.innerHTML='';
+  s.players.forEach((p,i)=>{
+    const d=document.createElement('div');d.className=`pl-item ${i===0?'host':''}`;
+    let badges='';
+    if(i===0)badges+='<span class="pl-badge host-badge">방장</span>';
+    if(i===s.myIndex)badges+='<span class="pl-badge you-badge">나</span>';
+    d.innerHTML=`<div class="pl-avatar">${p.name.charAt(0)}</div><div class="pl-name">${p.name}</div>${badges}`;
+    list.appendChild(d);
+  });
+  const btn=document.getElementById('start-btn');
+  btn.disabled=!(s.myIndex===0&&s.players.length>=2);
+  document.getElementById('waiting-hint').textContent=s.players.length>=2?(s.myIndex===0?'준비 완료! 게임을 시작하세요':'방장이 게임을 시작할 때까지 대기 중...'):`대기 중... (${s.players.length}명 접속)`;
+}
+
+function renderGame(s){
+  const felt=document.getElementById('table-felt');
+  felt.querySelectorAll('.seat').forEach(e=>e.remove());
+  const sp=getSeatPos(s.players.length,s.myIndex);
+  s.players.forEach((p,i)=>{
+    const pos=sp[i],isMe=i===s.myIndex,isAct=i===s.currentPlayer&&s.phase!=='showdown';
+    const seat=document.createElement('div');seat.className=`seat seat-${pos}`;
+    let cards='';
+    if(!isMe){
+      if(s.phase==='showdown'&&!p.folded&&p.hand)cards=`<div class="seat-cards">${p.hand.map(c=>cardEl(c)).join('')}</div>`;
+      else if(!p.folded)cards=`<div class="seat-cards">${Array(p.handCount||4).fill('<div class="card back"></div>').join('')}</div>`;
+    }
+    let badges='';
+    if(!isMe){const h=(s.exHist||{})[i]||[null,null,null];const cls=['morning','noon','evening'],ico=['🌅','☀️','🌙'];let b='';h.forEach((v,ri)=>{if(v!==null)b+=`<span class="ex-badge ${cls[ri]}">${ico[ri]}${v==='S'?'S':v}</span>`});if(b)badges=`<div class="exchange-badges">${b}</div>`}
+    let bet=p.bet>0?`<div class="seat-bet">${p.bet.toLocaleString()}</div>`:'';
+    const bi=p.buyinTotal||0;const biStr=bi>=10000?(bi/10000)+'만':bi.toLocaleString();
+    seat.innerHTML=`<div class="seat-avatar ${isAct?'active':''} ${p.folded?'folded':''}" style="position:relative">${p.isDealer?'<div class="dealer-chip">D</div>':''}${p.name.charAt(0)}</div><div class="seat-name">${p.name}</div><div class="seat-chips">💰 ${p.chips.toLocaleString()}</div><div class="seat-buyin">바인 ${biStr}</div>${cards}${badges}${bet}`;
+    felt.appendChild(seat);
+  });
+  renderMyHand(s);
+  document.getElementById('pot-amount').textContent=s.pot.toLocaleString();
+  const me=s.players[s.myIndex];
+  document.getElementById('my-chips').textContent=me.chips.toLocaleString();
+  const myBi=me.buyinTotal||0;document.getElementById('my-buyin').textContent=myBi>=10000?(myBi/10000)+'만':myBi.toLocaleString();
+  document.getElementById('round-num').textContent=s.round;
+  document.getElementById('exchange-num').textContent=`${s.exchangeRound}/3`;
+  document.getElementById('blind-info').textContent=`${s.sb}/${s.bb}`;
+  const ei=document.getElementById('exchange-info');
+  if(s.phase==='exchange')ei.innerHTML=`<div class="exchange-round-text">${['🌅 아침','☀️ 점심','🌙 저녁'][s.exchangeRound-1]} - ${s.exchangeRound}차 교환</div><div>교환할 카드를 선택하세요</div>`;else ei.innerHTML='';
+  updatePanel(s);
+}
+
+function renderMyHand(s){
+  const area=document.getElementById('my-hand-area');area.innerHTML='';
+  const me=s.players[s.myIndex];if(me.folded||!me.hand||!me.hand.length)return;
+  const hand=document.createElement('div');hand.className='my-hand';
+  const isMyExTurn=s.phase==='exchange'&&s.currentPlayer===s.myIndex;
+  const canPre=!me.folded&&s.phase!=='showdown';
+  me.hand.forEach((c,idx)=>{
+    const el=document.createElement('div');const red=c.suit==='♥'||c.suit==='♦';
+    if(isMyExTurn){const isSel=preselectedCards.has(idx);el.className=`card ${red?'red':'black'} selectable ${isSel?'selected':''}`;el.onclick=()=>{el.classList.toggle('selected');if(preselectedCards.has(idx))preselectedCards.delete(idx);else preselectedCards.add(idx)}}
+    else if(canPre){const isPre=preselectedCards.has(idx);el.className=`card ${red?'red':'black'} preselect ${isPre?'preselected':''}`;el.onclick=()=>{if(preselectedCards.has(idx))preselectedCards.delete(idx);else preselectedCards.add(idx);el.classList.toggle('preselected')}}
+    else{el.className=`card ${red?'red':'black'}`}
+    el.innerHTML=`<span class="suit">${c.suit}</span>${c.rank}`;el.dataset.index=idx;hand.appendChild(el);
+  });area.appendChild(hand);
+  // rank
+  const rank=evalBadugi(me.hand);const lbl=document.createElement('div');lbl.className='hand-rank-label';lbl.textContent=rank.name;area.appendChild(lbl);
+  // badges
+  const h=(s.exHist||{})[s.myIndex]||[null,null,null];const cls=['morning','noon','evening'],ico=['🌅','☀️','🌙'];
+  let b='';h.forEach((v,ri)=>{if(v!==null){const txt=v==='S'?'스테이':`${v}장`;b+=`<span class="ex-badge ${cls[ri]}">${ico[ri]} ${txt}</span>`}});
+  if(b){const bd=document.createElement('div');bd.className='my-exchange-badges';bd.innerHTML=b;area.appendChild(bd)}
+}
+
+function updatePanel(s){
+  const panel=document.getElementById('action-panel');
+  const myTurn=s.currentPlayer===s.myIndex&&!s.players[s.myIndex].folded;
+  if(!myTurn||s.phase==='showdown'){panel.style.display='none';return}
+  panel.style.display='flex';const me=s.players[s.myIndex];
+  if(s.phase==='exchange'){
+    document.querySelector('.action-btn.fold').style.display='none';document.getElementById('btn-check').style.display='none';document.getElementById('btn-call').style.display='none';
+    document.querySelector('.action-btn.raise').style.display='none';document.querySelector('.raise-input').style.display='none';
+    document.getElementById('btn-exchange').style.display='';document.getElementById('btn-stay').style.display=''}
+  else{document.querySelector('.action-btn.fold').style.display='';document.querySelector('.action-btn.raise').style.display='';document.querySelector('.raise-input').style.display='';
+    document.getElementById('btn-exchange').style.display='none';document.getElementById('btn-stay').style.display='none';
+    if(s.currentBet>me.bet){document.getElementById('btn-check').style.display='none';document.getElementById('btn-call').style.display='';document.getElementById('call-amount').textContent=(s.currentBet-me.bet).toLocaleString()}
+    else{document.getElementById('btn-check').style.display='';document.getElementById('btn-call').style.display='none'}}
+}
+
+function showResult(msg){
+  document.getElementById('result-modal').classList.add('active');
+  document.getElementById('result-title').textContent=`${msg.winner} 승리! (+${msg.pot.toLocaleString()})`;
+  const hd=document.getElementById('result-hands');hd.innerHTML='';
+  msg.results.forEach(r=>{
+    const d=document.createElement('div');d.className=`result-hand ${r.isWinner?'winner':''}`;
+    const ico=['🌅','☀️','🌙'];let exB='';(r.exHist||[]).forEach((v,i)=>{if(v!==null)exB+=`<span class="ex-badge ${['morning','noon','evening'][i]}">${ico[i]}${v==='S'?'S':v}</span>`});
+    d.innerHTML=`<div class="rh-name">${r.name}</div><div class="rh-cards">${r.folded?'<span style="color:var(--text-dim)">폴드</span>':r.hand.map(c=>cardEl(c)).join('')}</div><div class="rh-ex">${exB}</div><div class="rh-rank">${r.eval.name}</div>`;
+    hd.appendChild(d)});
+  // Only host sees next round button
+  document.getElementById('next-round-btn').style.display=isHost?'':'none';
+}
+
+// ========== HELPERS ==========
+function getSeatPos(n,myIdx){const p={},m={2:[0,2],3:[0,1,3],4:[0,1,2,3]};for(let i=0;i<n;i++)p[i]=m[n][(i-myIdx+n)%n];return p}
+function cardEl(c){const r=c.suit==='♥'||c.suit==='♦';return`<div class="card ${r?'red':'black'}"><span class="suit">${c.suit}</span>${c.rank}</div>`}
+function toast(msg){const c=document.getElementById('toast-container'),el=document.createElement('div');el.className='toast';el.textContent=msg;c.appendChild(el);setTimeout(()=>el.remove(),2500)}
+
+// ========== CLIENT-SIDE BADUGI EVAL (for hand rank display) ==========
+const RV={A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13};
+function evalBadugi(hand){if(!hand||!hand.length)return{name:'',score:0};const best=getBest(hand);const cnt=best.length;const v=best.map(c=>RV[c.rank]).sort((a,b)=>a-b);let name='',score=0;if(cnt===4){score=40000-v.reduce((a,x)=>a*14+x,0);if(v[0]===1&&v[1]===2&&v[2]===3&&v[3]===4){name='🏆 골프';score=50000}else if(v[0]===1&&v[1]===2&&v[2]===3&&v[3]===5){name='세컨드 (A-2-3-5)';score=49000}else name=`바둑이 (${best.map(c=>c.rank).join('-')})`}else if(cnt===3){score=30000-v.reduce((a,x)=>a*14+x,0);name=`베이스 (${best.map(c=>c.rank).join('-')})`}else if(cnt===2){score=20000-v.reduce((a,x)=>a*14+x,0);name=`투베이스 (${best.map(c=>c.rank).join('-')})`}else{score=10000-v[0];name='원카드'}return{name,score}}
+function getBest(h){for(let sz=4;sz>=1;sz--){const co=getCombos(h,sz);let best=null,bs=Infinity;for(const c of co){const su=new Set(c.map(x=>x.suit)),ra=new Set(c.map(x=>RV[x.rank]));if(su.size===c.length&&ra.size===c.length){const sc=c.reduce((a,x)=>a+RV[x.rank],0);if(sc<bs){best=c;bs=sc}}}if(best)return best}return[h.reduce((a,c)=>RV[c.rank]<RV[a.rank]?c:a)]}
+function getCombos(a,s){if(s===1)return a.map(x=>[x]);const r=[];for(let i=0;i<=a.length-s;i++)for(const c of getCombos(a.slice(i+1),s-1))r.push([a[i],...c]);return r}
+
+// ========== INIT ==========
+document.getElementById('nickname').focus();
+document.getElementById('nickname').addEventListener('keydown',e=>{if(e.key==='Enter')doCreate()});
+connect();
+</script>
+</body>
+</html>

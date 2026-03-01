@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>바둑이 온라인</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --felt:#0a5c2f;--felt-dark:#073d1f;--felt-light:#0d7a3e;
+  --gold:#d4a517;--gold-light:#f0c94d;
+  --bg-dark:#1a1a2e;--bg-darker:#0f0f1f;
+  --text:#ecf0f1;--text-dim:#7f8c8d;
+  --success:#2ecc71;--accent:#e74c3c;
+}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var(--text);height:100vh;height:100dvh;overflow:hidden}
+
+.screen{display:none;width:100vw;height:100vh;height:100dvh}
+.screen.active{display:flex}
+
+/* ===== LOBBY ===== */
+#lobby{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg-darker) 0%,#16213e 50%,var(--bg-darker) 100%);position:relative}
+.lobby-title{font-family:'Outfit',sans-serif;font-size:clamp(2.5rem,8vw,4rem);font-weight:900;letter-spacing:-2px;background:linear-gradient(135deg,var(--gold),var(--gold-light),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.lobby-subtitle{font-size:0.9rem;color:var(--text-dim);margin-bottom:40px;letter-spacing:4px;text-transform:uppercase}
+.lobby-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:32px;width:min(400px,90vw);backdrop-filter:blur(20px)}
+.lobby-card h3{font-family:'Outfit',sans-serif;font-size:1rem;font-weight:600;color:var(--gold);margin-bottom:20px;text-transform:uppercase;letter-spacing:2px}
+.input-group{margin-bottom:14px}
+.input-group label{display:block;font-size:0.75rem;color:var(--text-dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px}
+.input-group input,.input-group select{width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);font-size:1rem;font-family:inherit;outline:none;transition:border-color .2s}
+.input-group input:focus,.input-group select:focus{border-color:var(--gold)}
+.input-group select option{background:var(--bg-dark)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border:none;border-radius:12px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;width:100%;margin-top:8px}
+.btn-primary{background:linear-gradient(135deg,var(--gold),#b8860b);color:#000;box-shadow:0 4px 16px rgba(212,165,23,.3)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.15)}
+.divider{display:flex;align-items:center;gap:16px;margin:20px 0;color:var(--text-dim);font-size:.8rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+
+/* ===== WAITING ===== */
+#waiting-room{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg-darker),#16213e)}
+.room-code{font-family:'Outfit',sans-serif;font-size:3rem;font-weight:800;color:var(--gold);letter-spacing:8px}
+.room-code-label{font-size:.85rem;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:2px;text-align:center}
+.players-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:min(400px,90vw);margin:24px 0}
+.player-slot{background:rgba(255,255,255,.04);border:2px dashed rgba(255,255,255,.1);border-radius:14px;padding:16px;text-align:center}
+.player-slot.filled{border-style:solid;border-color:var(--gold);background:rgba(212,165,23,.08)}
+.player-slot .name{font-weight:700}
+.player-slot .status{font-size:.8rem;color:var(--text-dim);margin-top:4px}
+.copy-link-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:var(--text);padding:10px 20px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:.9rem;margin-bottom:20px;transition:all .2s}
+.copy-link-btn:hover{background:rgba(255,255,255,.1)}
+
+/* ===== GAME TABLE ===== */
+#game-table{flex-direction:column;align-items:center;background:var(--bg-darker);position:relative}
+
+.game-info-bar{position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;gap:16px;padding:8px 20px;background:rgba(15,15,31,.9);border:1px solid rgba(255,255,255,.06);border-radius:12px;z-index:100;font-size:.8rem;white-space:nowrap}
+.game-info-item{display:flex;align-items:center;gap:5px}
+.game-info-item .label{color:var(--text-dim);font-size:.7rem;text-transform:uppercase;letter-spacing:1px}
+.game-info-item .value{font-family:'Outfit',sans-serif;font-weight:700;color:var(--gold)}
+
+.table-area{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding-top:44px;position:relative}
+
+.table-felt{position:relative;width:min(780px,92vw);height:min(400px,46vh);background:radial-gradient(ellipse at center,var(--felt-light) 0%,var(--felt) 40%,var(--felt-dark) 100%);border-radius:45%;border:10px solid #2c1810;box-shadow:inset 0 0 50px rgba(0,0,0,.4),0 0 0 3px #1a0f08,0 0 0 7px #3d2517,0 16px 50px rgba(0,0,0,.5);overflow:visible}
+.table-felt::before{content:'';position:absolute;inset:6px;border:2px solid rgba(212,165,23,.12);border-radius:45%;pointer-events:none}
+
+.pot-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:5}
+.pot-label{font-size:.65rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:2px}
+.pot-amount{font-family:'Outfit',sans-serif;font-size:clamp(1.4rem,4vw,2rem);font-weight:800;color:var(--gold-light);text-shadow:0 2px 8px rgba(0,0,0,.5)}
+
+.exchange-info{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);text-align:center;color:rgba(255,255,255,.6);font-size:.8rem;z-index:5}
+.exchange-round-text{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold-light)}
+
+/* ===== SEATS ===== */
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center;z-index:10}
+.seat-0{bottom:-36px;left:50%;transform:translateX(-50%)}
+.seat-1{left:-16px;top:50%;transform:translateY(-50%)}
+.seat-2{top:-36px;left:50%;transform:translateX(-50%)}
+.seat-3{right:-16px;top:50%;transform:translateY(-50%)}
+
+.seat-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2c3e50,#34495e);display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:800;border:3px solid rgba(255,255,255,.2);position:relative}
+.seat-avatar.active{border-color:var(--gold);box-shadow:0 0 16px rgba(212,165,23,.5);animation:pulse-glow 1.5s infinite}
+.seat-avatar.folded{opacity:.35}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 16px rgba(212,165,23,.3)}50%{box-shadow:0 0 28px rgba(212,165,23,.6)}}
+
+.seat-name{font-size:.75rem;font-weight:600;margin-top:4px;padding:2px 8px;background:rgba(0,0,0,.6);border-radius:6px;white-space:nowrap}
+.seat-chips{font-size:.65rem;color:var(--gold);margin-top:2px}
+.seat-bet{position:absolute;font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.7);padding:2px 8px;border-radius:6px;white-space:nowrap}
+.seat-0 .seat-bet{top:-24px}
+.seat-1 .seat-bet{right:-70px}
+.seat-2 .seat-bet{bottom:-24px}
+.seat-3 .seat-bet{left:-70px}
+.seat-cards{display:flex;gap:3px;margin-top:4px}
+
+/* ===== EXCHANGE BADGES ===== */
+.exchange-badges{display:flex;gap:3px;margin-top:3px;justify-content:center;flex-wrap:wrap}
+.ex-badge{font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:4px;line-height:1.2;white-space:nowrap}
+.ex-badge.morning{background:rgba(255,152,0,.25);color:#ffb74d;border:1px solid rgba(255,152,0,.35)}
+.ex-badge.noon{background:rgba(33,150,243,.25);color:#64b5f6;border:1px solid rgba(33,150,243,.35)}
+.ex-badge.evening{background:rgba(156,39,176,.25);color:#ce93d8;border:1px solid rgba(156,39,176,.35)}
+
+/* ===== CARDS ===== */
+.card{width:44px;height:62px;border-radius:6px;background:#f5f0e8;border:1px solid rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .2s,box-shadow .2s;user-select:none;cursor:default;flex-shrink:0}
+.card .suit{font-size:.65rem}
+.card.red{color:#c0392b}
+.card.black{color:#2c3e50}
+.card.back{background:linear-gradient(135deg,#1a3a5c,#0d2137);border-color:#0a1929}
+.card.back::after{content:'🂠';font-size:1.4rem;opacity:.25}
+.card.selectable{cursor:pointer}
+.card.selectable:hover{transform:translateY(-6px);box-shadow:0 6px 16px rgba(0,0,0,.3)}
+.card.selected{transform:translateY(-10px);box-shadow:0 6px 16px rgba(212,165,23,.4);border-color:var(--gold);outline:2px solid var(--gold)}
+.card.preselect{cursor:pointer}
+.card.preselect:hover{transform:translateY(-5px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.card.preselected{transform:translateY(-8px);box-shadow:0 4px 12px rgba(255,255,255,.15);border-color:rgba(255,255,255,.35);outline:2px dashed rgba(255,255,255,.3)}
+
+.my-hand-area{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
+.my-hand{display:flex;gap:8px;justify-content:center}
+.my-hand .card{width:64px;height:90px;font-size:1.2rem;border-radius:8px}
+.my-hand .card .suit{font-size:.9rem}
+.hand-rank-label{font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.6);padding:3px 12px;border-radius:6px;margin-top:4px}
+.my-exchange-badges{display:flex;gap:4px;margin-top:4px}
+.my-exchange-badges .ex-badge{font-size:.7rem;padding:3px 8px}
+
+/* ===== ACTION PANEL ===== */
+.action-panel{display:flex;gap:8px;padding:10px 16px;background:rgba(15,15,31,.92);border:1px solid rgba(255,255,255,.08);border-radius:16px;backdrop-filter:blur(20px);align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+.action-btn{padding:10px 18px;border:none;border-radius:10px;font-family:inherit;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap}
+.action-btn:disabled{opacity:.3;cursor:not-allowed}
+.action-btn.fold{background:rgba(255,255,255,.08);color:var(--text)}
+.action-btn.fold:hover:not(:disabled){background:rgba(231,76,60,.3)}
+.action-btn.check{background:rgba(46,204,113,.15);color:var(--success);border:1px solid rgba(46,204,113,.3)}
+.action-btn.check:hover:not(:disabled){background:rgba(46,204,113,.25)}
+.action-btn.call{background:rgba(52,152,219,.15);color:#3498db;border:1px solid rgba(52,152,219,.3)}
+.action-btn.call:hover:not(:disabled){background:rgba(52,152,219,.25)}
+.action-btn.raise{background:linear-gradient(135deg,var(--gold),#b8860b);color:#000}
+.action-btn.raise:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(212,165,23,.3)}
+.action-btn.exchange{background:linear-gradient(135deg,#8e44ad,#6c3483);color:#fff}
+.action-btn.exchange:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(142,68,173,.3)}
+.raise-input{width:70px;padding:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-size:.9rem;font-family:'Outfit',sans-serif;font-weight:600;text-align:center;outline:none}
+.raise-input:focus{border-color:var(--gold)}
+
+.dealer-chip{position:absolute;width:22px;height:22px;background:var(--gold);color:#000;border-radius:50%;font-size:.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.3);z-index:15;top:-6px;right:-6px}
+
+/* TOAST */
+.toast-container{position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{padding:10px 20px;background:rgba(15,15,31,.95);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-size:.85rem;animation:toast-in .3s ease,toast-out .3s ease 2s forwards;backdrop-filter:blur(20px)}
+@keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+/* RESULT */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.result-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.2);border-radius:20px;padding:28px;text-align:center;width:min(440px,92vw);animation:modal-pop .3s ease}
+@keyframes modal-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.result-modal h2{font-family:'Outfit',sans-serif;font-size:1.4rem;font-weight:800;color:var(--gold);margin-bottom:16px}
+.result-hands{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.result-hand{display:flex;align-items:center;gap:8px;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;flex-wrap:wrap}
+.result-hand.winner{background:rgba(212,165,23,.12);border:1px solid rgba(212,165,23,.3)}
+.result-hand .rh-name{font-weight:700;min-width:44px;text-align:left;font-size:.85rem}
+.result-hand .rh-cards{display:flex;gap:3px;flex:1}
+.result-hand .rh-cards .card{width:34px;height:48px;font-size:.65rem;border-radius:4px}
+.result-hand .rh-cards .card .suit{font-size:.5rem}
+.result-hand .rh-ex{font-size:.6rem;color:var(--text-dim);display:flex;gap:2px}
+.result-hand .rh-rank{font-size:.7rem;color:var(--gold);min-width:60px;text-align:right}
+
+/* SOUND TOGGLE */
+.sound-toggle{position:fixed;top:10px;right:10px;z-index:200;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:.8rem;cursor:pointer;font-family:inherit;transition:all .2s}
+.sound-toggle:hover{background:rgba(255,255,255,.12)}
+
+/* BUYIN MODAL */
+.buyin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:250;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.buyin-overlay.active{display:flex}
+.buyin-modal{background:linear-gradient(135deg,var(--bg-dark),var(--bg-darker));border:1px solid rgba(212,165,23,.25);border-radius:20px;padding:32px;text-align:center;width:min(360px,88vw);animation:modal-pop .3s ease}
+.buyin-modal h3{font-family:'Outfit',sans-serif;font-size:1.2rem;font-weight:800;color:var(--gold);margin-bottom:6px}
+.buyin-modal .buyin-sub{font-size:.8rem;color:var(--text-dim);margin-bottom:20px}
+.buyin-options{display:flex;gap:12px;justify-content:center;margin-bottom:16px}
+.buyin-opt{flex:1;padding:20px 10px;border-radius:14px;border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s;text-align:center}
+.buyin-opt:hover{border-color:rgba(212,165,23,.4);background:rgba(212,165,23,.06)}
+.buyin-opt.selected{border-color:var(--gold);background:rgba(212,165,23,.12);box-shadow:0 0 16px rgba(212,165,23,.2)}
+.buyin-opt .buyin-amount{font-family:'Outfit',sans-serif;font-size:1.6rem;font-weight:800;color:var(--gold-light)}
+.buyin-opt .buyin-label{font-size:.75rem;color:var(--text-dim);margin-top:4px}
+
+/* BUYIN BADGE (next to name) */
+.seat-buyin{font-size:.55rem;color:#ef5350;margin-top:1px;font-weight:600}
+.my-buyin-total{font-size:.7rem;color:#ef5350;margin-top:2px;font-weight:600}
+
+/* MOBILE */
+@media(max-width:768px){
+  .game-info-bar{gap:8px;padding:6px 12px;font-size:.7rem}
+  .game-info-item .label{font-size:.6rem}
+  .table-felt{width:96vw;height:42vh;border-width:6px}
+  .seat-avatar{width:40px;height:40px;font-size:1rem}
+  .seat-name{font-size:.65rem;padding:1px 6px}
+  .seat-chips{font-size:.6rem}
+  .card{width:34px;height:48px;font-size:.7rem;border-radius:4px}
+  .card .suit{font-size:.5rem}
+  .my-hand .card{width:54px;height:76px;font-size:1rem;border-radius:6px}
+  .my-hand .card .suit{font-size:.8rem}
+  .action-panel{padding:8px 10px;gap:6px}
+  .action-btn{padding:8px 14px;font-size:.8rem}
+  .raise-input{width:56px;padding:7px;font-size:.8rem}
+  .lobby-card{padding:24px;width:92vw}
+  .ex-badge{font-size:.5rem;padding:1px 4px}
+  .seat-1{left:-8px}.seat-3{right:-8px}
+}
+@media(max-width:400px){
+  .my-hand .card{width:48px;height:66px;font-size:.9rem}
+  .table-felt{height:36vh}
+}
+</style>
+</head>
+<body>
+
+<button class="sound-toggle" id="sound-toggle" onclick="toggleSound()">🔊 ON</button>
+
+<!-- LOBBY -->
+<div id="lobby" class="screen active">
+  <h1 class="lobby-title">BADUGI</h1>
+  <p class="lobby-subtitle">온라인 카드게임</p>
+  <div class="lobby-card">
+    <h3>게임 참가</h3>
+    <div class="input-group"><label>닉네임</label><input type="text" id="nickname" placeholder="이름을 입력하세요" maxlength="8"></div>
+    <div class="input-group"><label>인원수</label><select id="player-count"><option value="2">2명</option><option value="3">3명</option><option value="4" selected>4명</option></select></div>
+    <button class="btn btn-primary" onclick="createRoom()">🎴 방 만들기</button>
+    <div class="divider">또는</div>
+    <div class="input-group"><label>방 코드</label><input type="text" id="room-code-input" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase"></div>
+    <button class="btn btn-secondary" onclick="joinRoom()">참가하기</button>
+  </div>
+</div>
+
+<!-- WAITING -->
+<div id="waiting-room" class="screen">
+  <div class="room-code-label">방 코드</div>
+  <div class="room-code" id="display-room-code">-</div>
+  <div class="players-grid" id="players-grid"></div>
+  <button class="copy-link-btn" onclick="copyRoomCode()">📋 방 코드 복사</button>
+  <button class="btn btn-primary" id="start-game-btn" style="width:280px" onclick="startGame()" disabled>게임 시작</button>
+</div>
+
+<!-- GAME TABLE -->
+<div id="game-table" class="screen">
+  <div class="game-info-bar">
+    <div class="game-info-item"><span class="label">라운드</span><span class="value" id="round-num">1</span></div>
+    <div class="game-info-item"><span class="label">교환</span><span class="value" id="exchange-num">0/3</span></div>
+    <div class="game-info-item"><span class="label">블라인드</span><span class="value" id="blind-info">50/100</span></div>
+    <div class="game-info-item"><span class="label">내 칩</span><span class="value" id="my-chips">10,000</span></div>
+    <div class="game-info-item"><span class="label">내 바인</span><span class="value" id="my-buyin-total" style="color:#ef5350">0</span></div>
+  </div>
+  <div class="table-area">
+    <div class="table-felt" id="table-felt">
+      <div class="pot-display"><div class="pot-label">POT</div><div class="pot-amount" id="pot-amount">0</div></div>
+      <div class="exchange-info" id="exchange-info"></div>
+    </div>
+  </div>
+  <div class="my-hand-area" id="my-hand-area"></div>
+  <div class="action-panel" id="action-panel" style="display:none">
+    <button class="action-btn fold" onclick="doAction('fold')">폴드</button>
+    <button class="action-btn check" id="btn-check" onclick="doAction('check')">체크</button>
+    <button class="action-btn call" id="btn-call" onclick="doAction('call')" style="display:none">콜 <span id="call-amount"></span></button>
+    <input type="number" class="raise-input" id="raise-amount" placeholder="금액" min="0" step="100">
+    <button class="action-btn raise" onclick="doAction('raise')">레이즈</button>
+    <div style="width:1px;height:24px;background:rgba(255,255,255,.1);margin:0 2px"></div>
+    <button class="action-btn exchange" id="btn-exchange" onclick="doAction('exchange')" style="display:none">교환</button>
+    <button class="action-btn exchange" id="btn-stay" onclick="doAction('stay')" style="display:none">스테이</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- BUYIN MODAL -->
+<div class="buyin-overlay" id="buyin-modal">
+  <div class="buyin-modal">
+    <h3>💰 바인 선택</h3>
+    <div class="buyin-sub">라운드 <span id="buyin-round">1</span> - 참가 금액을 선택하세요</div>
+    <div class="buyin-options">
+      <div class="buyin-opt selected" data-amount="10000" onclick="selectBuyin(this,10000)">
+        <div class="buyin-amount">1만</div>
+        <div class="buyin-label">기본</div>
+      </div>
+      <div class="buyin-opt" data-amount="20000" onclick="selectBuyin(this,20000)">
+        <div class="buyin-amount">2만</div>
+        <div class="buyin-label">더블</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:4px" onclick="confirmBuyin()">게임 시작</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="result-modal">
+  <div class="result-modal">
+    <h2 id="result-title">결과</h2>
+    <div class="result-hands" id="result-hands"></div>
+    <button class="btn btn-primary" style="width:auto;padding:12px 40px" onclick="nextRound()">다음 라운드</button>
+  </div>
+</div>
+
+<script>
+// ========== SOUND ==========
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null, soundEnabled=true;
+function initAudio(){if(!audioCtx)audioCtx=new AudioCtx()}
+function toggleSound(){soundEnabled=!soundEnabled;document.getElementById('sound-toggle').textContent=soundEnabled?'🔊 ON':'🔇 OFF'}
+
+function playSound(type){
+  if(!soundEnabled)return;initAudio();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  const t=audioCtx.currentTime;
+  const osc=(freq,start,dur,vol=0.12,wave='sine')=>{
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=wave;o.frequency.setValueAtTime(freq,t+start);
+    o.connect(g);g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(vol,t+start);g.gain.exponentialRampToValueAtTime(0.001,t+start+dur);
+    o.start(t+start);o.stop(t+start+dur);
+  };
+  switch(type){
+    case'card':osc(800,0,.06,.12);osc(200,.02,.04,.08);break;
+    case'chip':osc(2400,0,.05,.1,'triangle');osc(1200,.03,.06,.06,'triangle');break;
+    case'fold':osc(150,0,.15,.15);break;
+    case'check':osc(600,0,.04,.08);break;
+    case'raise':osc(600,0,.07,.1,'triangle');osc(900,.06,.07,.1,'triangle');osc(1200,.12,.07,.1,'triangle');break;
+    case'win':[523,659,784,1047].forEach((f,i)=>osc(f,i*.11,.28,.1,'triangle'));break;
+    case'deal':for(let i=0;i<4;i++)setTimeout(()=>playSound('card'),i*80);break;
+    case'exchange':osc(400,0,.05,.06,'sawtooth');osc(800,.04,.06,.06,'sawtooth');break;
+    case'turn':osc(880,0,.12,.07);break;
+  }
+}
+
+// ========== CONSTANTS ==========
+const SUITS=['♠','♥','♦','♣'];
+const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RV={A:1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,J:11,Q:12,K:13};
+
+// ========== STATE ==========
+let S={roomCode:'',myName:'',players:[],myIndex:0,pot:0,currentBet:0,currentPlayer:0,
+  exchangeRound:0,phase:'betting',deck:[],sb:50,bb:100,round:1,dealerIdx:0,
+  lastRaiser:-1,acted:new Set(),selectedBuyin:10000};
+let exHist={};
+let buyinTotals={};
+let preselectedCards=new Set(); // 미리 찝어둔 카드 인덱스 // playerIndex -> total buyin amount across all rounds
+
+function resetExHist(){exHist={};S.players.forEach((_,i)=>{exHist[i]=[null,null,null]})}
+function recordEx(pi,round,count){exHist[pi][round-1]=count===0?'S':count}
+
+// ========== SCREENS ==========
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+// ========== LOBBY ==========
+function createRoom(){
+  const n=document.getElementById('nickname').value.trim();
+  if(!n){toast('닉네임을 입력하세요');return}
+  S.myName=n;S.roomCode=genCode();
+  const cnt=parseInt(document.getElementById('player-count').value);
+  S.players=[{name:n,chips:10000,hand:[],bet:0,folded:false,isDealer:true,isBot:false,totalBet:0}];
+  const bots=['짱구','철수','맹구','유리','훈이'];
+  for(let i=1;i<cnt;i++)S.players.push({name:bots[i-1],chips:10000,hand:[],bet:0,folded:false,isDealer:false,isBot:true,totalBet:0});
+  S.myIndex=0;S.dealerIdx=0;buyinTotals={};S.players.forEach((_,i)=>{buyinTotals[i]=0});showWaitingRoom();
+}
+function joinRoom(){const n=document.getElementById('nickname').value.trim();if(!n){toast('닉네임을 입력하세요');return}S.myName=n;createRoom()}
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=c[~~(Math.random()*c.length)];return s}
+
+// ========== WAITING ==========
+function showWaitingRoom(){
+  showScreen('waiting-room');document.getElementById('display-room-code').textContent=S.roomCode;
+  const g=document.getElementById('players-grid');g.innerHTML='';
+  for(let i=0;i<4;i++){const d=document.createElement('div');d.className='player-slot '+(i<S.players.length?'filled':'');
+    d.innerHTML=i<S.players.length?`<div class="name">${S.players[i].name}</div><div class="status">${S.players[i].isBot?'🤖 AI':'👤 준비완료'}</div>`:`<div class="name" style="color:var(--text-dim)">빈 자리</div>`;g.appendChild(d)}
+  document.getElementById('start-game-btn').disabled=S.players.length<2;
+}
+function copyRoomCode(){navigator.clipboard.writeText(S.roomCode).then(()=>toast('복사됨!'))}
+
+// ========== GAME ==========
+function startGame(){showScreen('game-table');showBuyinModal()}
+
+function showBuyinModal(){
+  document.getElementById('buyin-round').textContent=S.round;
+  // 첫 라운드만 선택, 이후는 기존 금액 유지 표시
+  const prev=S.selectedBuyin;
+  document.querySelectorAll('.buyin-opt').forEach(o=>{o.classList.toggle('selected',parseInt(o.dataset.amount)===prev)});
+  document.getElementById('buyin-modal').classList.add('active');
+}
+function selectBuyin(el,amt){
+  document.querySelectorAll('.buyin-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');S.selectedBuyin=amt;
+}
+function confirmBuyin(){
+  document.getElementById('buyin-modal').classList.remove('active');
+  applyBuyin();
+  playSound('chip');
+  newRound();
+}
+function applyBuyin(){
+  S.players.forEach((p,i)=>{
+    p.chips=S.selectedBuyin;
+    buyinTotals[i]=(buyinTotals[i]||0)+S.selectedBuyin;
+  });
+}
+
+function newRound(){
+  S.deck=mkDeck();S.pot=0;S.currentBet=0;S.exchangeRound=0;S.phase='betting';S.lastRaiser=-1;S.acted=new Set();
+  preselectedCards=new Set();
+  S.players.forEach(p=>{p.hand=[];p.bet=0;p.totalBet=0;p.folded=false});
+  S.dealerIdx=S.dealerIdx%S.players.length;S.players.forEach((p,i)=>p.isDealer=i===S.dealerIdx);
+  resetExHist();
+  for(let c=0;c<4;c++)for(let p=0;p<S.players.length;p++)S.players[p].hand.push(S.deck.pop());
+  playSound('deal');
+  const sb=(S.dealerIdx+1)%S.players.length,bb=(S.dealerIdx+2)%S.players.length;
+  postBlind(sb,S.sb);postBlind(bb,S.bb);
+  S.currentBet=S.bb;S.currentPlayer=(bb+1)%S.players.length;
+  render();toast(`라운드 ${S.round} 시작!`);setTimeout(()=>processTurn(),400);
+}
+function postBlind(i,amt){const a=Math.min(amt,S.players[i].chips);S.players[i].chips-=a;S.players[i].bet=a;S.players[i].totalBet=a;S.pot+=a;playSound('chip')}
+function mkDeck(){let d=[];for(const s of SUITS)for(const r of RANKS)d.push({suit:s,rank:r});for(let i=d.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
+
+// ========== RENDER ==========
+function render(){
+  const felt=document.getElementById('table-felt');
+  felt.querySelectorAll('.seat').forEach(e=>e.remove());
+  const sp=getSeatPos();
+  S.players.forEach((p,i)=>{
+    const pos=sp[i],isMe=i===S.myIndex,isAct=i===S.currentPlayer&&S.phase!=='showdown';
+    const seat=document.createElement('div');seat.className=`seat seat-${pos}`;
+    let cards='';
+    if(!isMe){
+      if(S.phase==='showdown'&&!p.folded)cards=`<div class="seat-cards">${p.hand.map(c=>cardEl(c)).join('')}</div>`;
+      else if(!p.folded)cards=`<div class="seat-cards">${p.hand.map(()=>'<div class="card back"></div>').join('')}</div>`;
+    }
+    // Exchange badges
+    let badges='';
+    if(!isMe){
+      const h=exHist[i]||[null,null,null];
+      const cls=['morning','noon','evening'],ico=['🌅','☀️','🌙'];
+      let b='';h.forEach((v,ri)=>{if(v!==null)b+=`<span class="ex-badge ${cls[ri]}">${ico[ri]}${v==='S'?'S':v}</span>`});
+      if(b)badges=`<div class="exchange-badges">${b}</div>`;
+    }
+    let bet=p.bet>0?`<div class="seat-bet">${p.bet.toLocaleString()}</div>`:'';
+    const buyinTotal=buyinTotals[i]||0;
+    const buyinStr=buyinTotal>=10000?(buyinTotal/10000)+'만':buyinTotal.toLocaleString();
+    seat.innerHTML=`<div class="seat-avatar ${isAct?'active':''} ${p.folded?'folded':''}" style="position:relative">${p.isDealer?'<div class="dealer-chip">D</div>':''}${p.name.charAt(0)}</div><div class="seat-name">${p.name}</div><div class="seat-chips">💰 ${p.chips.toLocaleString()}</div><div class="seat-buyin">바인 ${buyinStr}</div>${cards}${badges}${bet}`;
+    felt.appendChild(seat);
+  });
+  renderMyHand();
+  document.getElementById('pot-amount').textContent=S.pot.toLocaleString();
+  document.getElementById('my-chips').textContent=S.players[S.myIndex].chips.toLocaleString();
+  const myBuyin=buyinTotals[S.myIndex]||0;
+  document.getElementById('my-buyin-total').textContent=myBuyin>=10000?(myBuyin/10000)+'만':myBuyin.toLocaleString();
+  document.getElementById('round-num').textContent=S.round;
+  document.getElementById('exchange-num').textContent=`${S.exchangeRound}/3`;
+  document.getElementById('blind-info').textContent=`${S.sb}/${S.bb}`;
+  const ei=document.getElementById('exchange-info');
+  if(S.phase==='exchange')ei.innerHTML=`<div class="exchange-round-text">${['🌅 아침','☀️ 점심','🌙 저녁'][S.exchangeRound-1]} - ${S.exchangeRound}차 교환</div><div>교환할 카드를 선택하세요</div>`;
+  else ei.innerHTML='';
+}
+
+function renderMyHand(){
+  const area=document.getElementById('my-hand-area');area.innerHTML='';
+  const me=S.players[S.myIndex];if(me.folded||!me.hand.length)return;
+  const hand=document.createElement('div');hand.className='my-hand';
+  const isMyExTurn=S.phase==='exchange'&&S.currentPlayer===S.myIndex;
+  const canPreselect=!me.folded&&S.phase!=='showdown';
+
+  me.hand.forEach((c,idx)=>{
+    const el=document.createElement('div');const red=c.suit==='♥'||c.suit==='♦';
+
+    if(isMyExTurn){
+      // 내 교환 턴: selected 스타일 (골드)
+      const isSel=preselectedCards.has(idx);
+      el.className=`card ${red?'red':'black'} selectable ${isSel?'selected':''}`;
+      el.onclick=()=>{
+        el.classList.toggle('selected');
+        if(preselectedCards.has(idx))preselectedCards.delete(idx);else preselectedCards.add(idx);
+      };
+    } else if(canPreselect){
+      // 내 턴 아닐 때: preselect 스타일 (흰색 점선)
+      const isPre=preselectedCards.has(idx);
+      el.className=`card ${red?'red':'black'} preselect ${isPre?'preselected':''}`;
+      el.onclick=()=>{
+        if(preselectedCards.has(idx))preselectedCards.delete(idx);else preselectedCards.add(idx);
+        el.classList.toggle('preselected');
+      };
+    } else {
+      el.className=`card ${red?'red':'black'}`;
+    }
+
+    el.innerHTML=`<span class="suit">${c.suit}</span>${c.rank}`;el.dataset.index=idx;
+    hand.appendChild(el);
+  });area.appendChild(hand);
+
+  const rank=evalBadugi(me.hand);
+  const lbl=document.createElement('div');lbl.className='hand-rank-label';lbl.textContent=rank.name;area.appendChild(lbl);
+  // My badges
+  const h=exHist[S.myIndex]||[null,null,null];
+  const cls=['morning','noon','evening'],ico=['🌅','☀️','🌙'];
+  let b='';h.forEach((v,ri)=>{if(v!==null){const txt=v==='S'?'스테이':`${v}장`;b+=`<span class="ex-badge ${cls[ri]}">${ico[ri]} ${txt}</span>`}});
+  if(b){const bd=document.createElement('div');bd.className='my-exchange-badges';bd.innerHTML=b;area.appendChild(bd)}
+}
+
+function getSeatPos(){const n=S.players.length,p={},m={2:[0,2],3:[0,1,3],4:[0,1,2,3]};for(let i=0;i<n;i++)p[i]=m[n][(i-S.myIndex+n)%n];return p}
+function cardEl(c){const r=c.suit==='♥'||c.suit==='♦';return`<div class="card ${r?'red':'black'}"><span class="suit">${c.suit}</span>${c.rank}</div>`}
+
+// ========== BADUGI EVAL ==========
+function evalBadugi(hand){
+  const best=getBest(hand);const cnt=best.length;
+  const v=best.map(c=>RV[c.rank]).sort((a,b)=>a-b);
+  let name='',score=0;
+  if(cnt===4){score=40000-v.reduce((a,x)=>a*14+x,0);
+    if(v[0]===1&&v[1]===2&&v[2]===3&&v[3]===4){name='🏆 골프 (A-2-3-4)';score=50000}
+    else if(v[0]===1&&v[1]===2&&v[2]===3&&v[3]===5){name='세컨드 (A-2-3-5)';score=49000}
+    else name=`바둑이 (${best.map(c=>c.rank).join('-')})`}
+  else if(cnt===3){score=30000-v.reduce((a,x)=>a*14+x,0);name=`베이스 (${best.map(c=>c.rank).join('-')})`}
+  else if(cnt===2){score=20000-v.reduce((a,x)=>a*14+x,0);name=`투베이스 (${best.map(c=>c.rank).join('-')})`}
+  else{score=10000-v[0];name='원카드'}
+  return{name,score,cards:best};
+}
+function getBest(hand){
+  for(let sz=4;sz>=1;sz--){const combos=getCombos(hand,sz);let best=null,bs=Infinity;
+    for(const co of combos){const su=new Set(co.map(c=>c.suit)),ra=new Set(co.map(c=>RV[c.rank]));
+      if(su.size===co.length&&ra.size===co.length){const sc=co.reduce((a,c)=>a+RV[c.rank],0);if(sc<bs){best=co;bs=sc}}}
+    if(best)return best}
+  return[hand.reduce((a,c)=>RV[c.rank]<RV[a.rank]?c:a)];
+}
+function getCombos(a,s){if(s===1)return a.map(x=>[x]);const r=[];for(let i=0;i<=a.length-s;i++)for(const c of getCombos(a.slice(i+1),s-1))r.push([a[i],...c]);return r}
+
+// ========== TURNS ==========
+function processTurn(){
+  let sf=0;while(S.players[S.currentPlayer].folded&&sf<10){S.currentPlayer=(S.currentPlayer+1)%S.players.length;sf++}
+  const act=S.players.filter(p=>!p.folded);
+  if(act.length===1){endRound(act[0]);return}
+  if(isBetDone()){endBetRound();return}
+  render();updatePanel();
+  if(S.currentPlayer===S.myIndex)playSound('turn');
+  if(S.players[S.currentPlayer].isBot)setTimeout(()=>botAct(),600+Math.random()*800);
+}
+function isBetDone(){const act=S.players.filter(p=>!p.folded);if(act.length<=1)return true;return act.every(p=>S.acted.has(S.players.indexOf(p)))&&act.every(p=>p.bet===S.currentBet||p.chips===0)}
+
+function endBetRound(){
+  S.players.forEach(p=>{p.bet=0});S.currentBet=0;S.acted=new Set();S.lastRaiser=-1;
+  if(S.exchangeRound>=3||S.phase==='final-bet'){S.phase='showdown';render();setTimeout(()=>showdown(),500)}
+  else{S.exchangeRound++;S.phase='exchange';
+    S.currentPlayer=(S.dealerIdx+1)%S.players.length;
+    let sf=0;while(S.players[S.currentPlayer].folded&&sf<10){S.currentPlayer=(S.currentPlayer+1)%S.players.length;sf++}
+    toast(`${['🌅 아침','☀️ 점심','🌙 저녁'][S.exchangeRound-1]} - ${S.exchangeRound}차 교환`);
+    render();updatePanel();processExTurn()}
+}
+
+function processExTurn(){
+  if(S.phase!=='exchange')return;
+  const act=S.players.filter(p=>!p.folded);
+  if(S.acted.size>=act.length){
+    S.phase=S.exchangeRound>=3?'final-bet':'betting';S.acted=new Set();
+    S.currentPlayer=(S.dealerIdx+1)%S.players.length;
+    let sf=0;while(S.players[S.currentPlayer].folded&&sf<10){S.currentPlayer=(S.currentPlayer+1)%S.players.length;sf++}
+    render();updatePanel();processTurn();return}
+  let sf=0;while(S.players[S.currentPlayer].folded&&sf<10){S.currentPlayer=(S.currentPlayer+1)%S.players.length;sf++}
+  render();updatePanel();
+  if(S.players[S.currentPlayer].isBot)setTimeout(()=>botEx(),500+Math.random()*500);
+}
+
+// ========== PLAYER ACTION ==========
+function doAction(action){
+  if(S.currentPlayer!==S.myIndex)return;const me=S.players[S.myIndex];
+  if(S.phase==='exchange'){
+    if(action==='exchange'){
+      // selected 클래스가 있는 카드 OR preselectedCards에서 가져옴
+      const sel=document.querySelectorAll('.my-hand .card.selected');
+      const idx=sel.length>0?Array.from(sel).map(el=>parseInt(el.dataset.index)):Array.from(preselectedCards);
+      recordEx(S.myIndex,S.exchangeRound,idx.length);playSound(idx.length?'exchange':'check');
+      toast(idx.length?`${idx.length}장 교환`:'교환 없음');
+      preselectedCards=new Set();exCards(S.myIndex,idx)}
+    else if(action==='stay'){recordEx(S.myIndex,S.exchangeRound,0);playSound('check');toast('스테이');
+      preselectedCards=new Set();exCards(S.myIndex,[])}
+    return}
+  if(action==='fold'){me.folded=true;playSound('fold');toast('폴드')}
+  else if(action==='check'){if(S.currentBet>me.bet)return;playSound('check')}
+  else if(action==='call'){const need=S.currentBet-me.bet,a=Math.min(need,me.chips);me.chips-=a;me.bet+=a;me.totalBet+=a;S.pot+=a;playSound('chip');toast(`콜 ${a.toLocaleString()}`)}
+  else if(action==='raise'){const ra=parseInt(document.getElementById('raise-amount').value)||S.bb;const need=(S.currentBet-me.bet)+ra;const a=Math.min(need,me.chips);
+    me.chips-=a;me.bet+=a;me.totalBet+=a;S.pot+=a;S.currentBet=me.bet;S.lastRaiser=S.myIndex;S.acted=new Set([S.myIndex]);
+    playSound('raise');toast(`레이즈 → ${me.bet.toLocaleString()}`);S.currentPlayer=(S.currentPlayer+1)%S.players.length;processTurn();return}
+  S.acted.add(S.myIndex);S.currentPlayer=(S.currentPlayer+1)%S.players.length;processTurn();
+}
+function exCards(pi,idx){idx.sort((a,b)=>b-a);for(const i of idx){S.players[pi].hand.splice(i,1);if(S.deck.length)S.players[pi].hand.push(S.deck.pop())}
+  S.acted.add(pi);S.currentPlayer=(S.currentPlayer+1)%S.players.length;processExTurn()}
+
+// ========== BOT ==========
+function botAct(){
+  const bot=S.players[S.currentPlayer];if(bot.folded)return;
+  const h=evalBadugi(bot.hand),ca=S.currentBet-bot.bet;
+  if(h.score>=40000&&Math.random()>.4&&ca<bot.chips/3){
+    const ra=S.bb*(1+~~(Math.random()*3)),a=Math.min(ca+ra,bot.chips);
+    bot.chips-=a;bot.bet+=a;bot.totalBet+=a;S.pot+=a;S.currentBet=bot.bet;S.lastRaiser=S.currentPlayer;S.acted=new Set([S.currentPlayer]);
+    playSound('raise');toast(`${bot.name} 레이즈 → ${bot.bet.toLocaleString()}`);S.currentPlayer=(S.currentPlayer+1)%S.players.length;processTurn();return}
+  if(ca===0){playSound('check');toast(`${bot.name} 체크`)}
+  else if(ca>bot.chips/2&&h.score<30000){bot.folded=true;playSound('fold');toast(`${bot.name} 폴드`)}
+  else{const a=Math.min(ca,bot.chips);bot.chips-=a;bot.bet+=a;bot.totalBet+=a;S.pot+=a;playSound('chip');toast(`${bot.name} 콜 ${a.toLocaleString()}`)}
+  S.acted.add(S.currentPlayer);S.currentPlayer=(S.currentPlayer+1)%S.players.length;processTurn();
+}
+function botEx(){
+  const bot=S.players[S.currentPlayer];if(bot.folded)return;
+  const combo=getBest(bot.hand),cs=new Set(combo.map(c=>c.suit+c.rank));
+  const toEx=[];bot.hand.forEach((c,i)=>{if(!cs.has(c.suit+c.rank))toEx.push(i)});
+  const fin=toEx.filter(()=>Math.random()>.2),cnt=fin.length;
+  recordEx(S.currentPlayer,S.exchangeRound,cnt);playSound(cnt?'exchange':'check');
+  toast(`${bot.name} ${cnt?cnt+'장 교환':'스테이'}`);exCards(S.currentPlayer,fin);
+}
+
+// ========== PANEL ==========
+function updatePanel(){
+  const panel=document.getElementById('action-panel');
+  const myTurn=S.currentPlayer===S.myIndex&&!S.players[S.myIndex].folded;
+  if(!myTurn||S.phase==='showdown'){panel.style.display='none';return}
+  panel.style.display='flex';
+  const me=S.players[S.myIndex];
+  if(S.phase==='exchange'){
+    document.querySelector('.action-btn.fold').style.display='none';
+    document.getElementById('btn-check').style.display='none';document.getElementById('btn-call').style.display='none';
+    document.querySelector('.action-btn.raise').style.display='none';document.querySelector('.raise-input').style.display='none';
+    document.getElementById('btn-exchange').style.display='';document.getElementById('btn-stay').style.display=''}
+  else{document.querySelector('.action-btn.fold').style.display='';document.querySelector('.action-btn.raise').style.display='';document.querySelector('.raise-input').style.display='';
+    document.getElementById('btn-exchange').style.display='none';document.getElementById('btn-stay').style.display='none';
+    if(S.currentBet>me.bet){document.getElementById('btn-check').style.display='none';document.getElementById('btn-call').style.display='';document.getElementById('call-amount').textContent=(S.currentBet-me.bet).toLocaleString()}
+    else{document.getElementById('btn-check').style.display='';document.getElementById('btn-call').style.display='none'}}
+}
+
+// ========== SHOWDOWN ==========
+function showdown(){
+  const act=S.players.filter(p=>!p.folded);if(act.length===1){endRound(act[0]);return}
+  let best=null,bs=-1;act.forEach(p=>{const e=evalBadugi(p.hand);p._eval=e;if(e.score>bs){bs=e.score;best=p}});endRound(best);
+}
+function endRound(winner){
+  winner.chips+=S.pot;playSound('win');
+  document.getElementById('result-modal').classList.add('active');
+  document.getElementById('result-title').textContent=`${winner.name} 승리! (+${S.pot.toLocaleString()})`;
+  const hd=document.getElementById('result-hands');hd.innerHTML='';
+  S.players.forEach(p=>{
+    const ev=p.folded?{name:'폴드'}:evalBadugi(p.hand);
+    const d=document.createElement('div');d.className=`result-hand ${p===winner?'winner':''}`;
+    const h=exHist[S.players.indexOf(p)]||[null,null,null];
+    const ico=['🌅','☀️','🌙'];let exB='';h.forEach((v,i)=>{if(v!==null)exB+=`<span class="ex-badge ${['morning','noon','evening'][i]}">${ico[i]}${v==='S'?'S':v}</span>`});
+    d.innerHTML=`<div class="rh-name">${p.name}</div><div class="rh-cards">${p.folded?'<span style="color:var(--text-dim)">폴드</span>':p.hand.map(c=>cardEl(c)).join('')}</div><div class="rh-ex">${exB}</div><div class="rh-rank">${ev.name}</div>`;
+    hd.appendChild(d)});
+}
+function nextRound(){
+  document.getElementById('result-modal').classList.remove('active');
+  S.round++;S.dealerIdx=(S.dealerIdx+1)%S.players.length;
+  // 리바인: 초기 설정 금액 그대로 적용
+  applyBuyin();
+  playSound('chip');
+  toast(`리바인 ${S.selectedBuyin>=10000?(S.selectedBuyin/10000)+'만':S.selectedBuyin.toLocaleString()}원`);
+  newRound();
+}
+
+// ========== TOAST ==========
+function toast(msg){const c=document.getElementById('toast-container'),el=document.createElement('div');el.className='toast';el.textContent=msg;c.appendChild(el);setTimeout(()=>el.remove(),2500)}
+
+// ========== INIT ==========
+document.getElementById('nickname').focus();
+document.getElementById('nickname').addEventListener('keydown',e=>{if(e.key==='Enter')createRoom()});
+document.addEventListener('click',()=>initAudio(),{once:true});
+</script>
+</body>
+</html>
