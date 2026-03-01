@@ -33,6 +33,7 @@ class Room {
     this.exHist = {};
     this.buyinAmount = 10000;
     this.buyinTotals = {};
+    this.turnTimer = null;
   }
 
   addPlayer(ws, name) {
@@ -133,6 +134,7 @@ class Room {
     this.broadcastState();
     this.broadcast({ type: 'toast', msg: `라운드 ${this.round} 시작!` });
     this.broadcast({ type: 'sound', sound: 'deal' });
+    this.startTurnTimer();
   }
 
   postBlind(i, amt) {
@@ -165,6 +167,7 @@ class Room {
 
   handleAction(playerIdx, action) {
     if (this.currentPlayer !== playerIdx) return;
+    this.clearTurnTimer();
     const p = this.players[playerIdx];
 
     if (this.phase === 'exchange') {
@@ -237,6 +240,7 @@ class Room {
     this.broadcastState();
     // Notify whose turn
     this.broadcast({ type: 'turn', player: this.currentPlayer });
+    this.startTurnTimer();
   }
 
   isBettingComplete() {
@@ -290,6 +294,7 @@ class Room {
     }
     this.broadcastState();
     this.broadcast({ type: 'turn', player: this.currentPlayer });
+    this.startTurnTimer();
   }
 
   showdown() {
@@ -305,6 +310,7 @@ class Room {
   }
 
   endRound(winner) {
+    this.clearTurnTimer();
     winner.chips += this.pot;
     this.phase = 'showdown';
     this.broadcast({ type: 'sound', sound: 'win' });
@@ -348,6 +354,40 @@ class Room {
       this.broadcast({ type: 'sound', sound: 'chip' });
     }
     this.startRound();
+  }
+
+  startTurnTimer() {
+    this.clearTurnTimer();
+    const room = this;
+    const player = this.currentPlayer;
+    this.broadcast({ type: 'timer', player: player, remaining: 60 });
+    this.turnTimer = setTimeout(() => {
+      if (room.currentPlayer !== player) return;
+      const p = room.players[player];
+      if (!p || p.folded) return;
+      if (room.phase === 'exchange') {
+        room.exHist[player][room.exchangeRound - 1] = 'S';
+        room.broadcast({ type: 'toast', msg: `${p.name} 시간초과 → 자동 스테이` });
+        room.broadcast({ type: 'sound', sound: 'check' });
+        room.acted.add(player);
+        room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+        room.processExchangeTurn();
+      } else {
+        p.folded = true;
+        room.broadcast({ type: 'toast', msg: `${p.name} 시간초과 → 자동 폴드` });
+        room.broadcast({ type: 'sound', sound: 'fold' });
+        room.acted.add(player);
+        room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+        room.processTurn();
+      }
+    }, 60000);
+  }
+
+  clearTurnTimer() {
+    if (this.turnTimer) {
+      clearTimeout(this.turnTimer);
+      this.turnTimer = null;
+    }
   }
 
   broadcastState() {

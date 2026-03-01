@@ -83,15 +83,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg-darker);color:var
 .ex-badge{font-size:.6rem;font-weight:700;padding:2px 5px;border-radius:4px;line-height:1.2;white-space:nowrap}
 .ex-badge.morning{background:rgba(255,152,0,.25);color:#ffb74d;border:1px solid rgba(255,152,0,.35)}.ex-badge.noon{background:rgba(33,150,243,.25);color:#64b5f6;border:1px solid rgba(33,150,243,.35)}.ex-badge.evening{background:rgba(156,39,176,.25);color:#ce93d8;border:1px solid rgba(156,39,176,.35)}
 .dealer-chip{position:absolute;width:22px;height:22px;background:var(--gold);color:#000;border-radius:50%;font-size:.55rem;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.3);z-index:15;top:-6px;right:-6px}
+.seat-timer{font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:700;color:#4fc3f7;background:rgba(0,0,0,.8);padding:3px 10px;border-radius:8px;white-space:nowrap;margin-bottom:2px;text-align:center;border:1px solid rgba(79,195,247,.3)}.seat-timer.warning{color:#ff4444;border-color:rgba(255,68,68,.5);animation:timer-pulse .5s infinite}
+@keyframes timer-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* CARDS */
 .card{width:44px;height:62px;border-radius:6px;background:#f5f0e8;border:1px solid rgba(0,0,0,.12);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:transform .2s,box-shadow .2s;user-select:none;cursor:default;flex-shrink:0}
 .card .suit{font-size:.65rem}.card.red{color:#c0392b}.card.black{color:#2c3e50}
 .card.back{background:linear-gradient(135deg,#1a3a5c,#0d2137);border-color:#0a1929}.card.back::after{content:'🂠';font-size:1.4rem;opacity:.25}
 .card.selectable{cursor:pointer}.card.selectable:hover{transform:translateY(-6px);box-shadow:0 6px 16px rgba(0,0,0,.3)}
-.card.selected{transform:translateY(-10px);box-shadow:0 6px 16px rgba(212,165,23,.4);border-color:var(--gold);outline:2px solid var(--gold)}
+.card.selected{transform:translateY(-18px);box-shadow:0 8px 24px rgba(0,230,118,.5),0 0 16px rgba(0,230,118,.3);border-color:#00e676;outline:3px solid #00e676;background:#f0fff4}
 .card.preselect{cursor:pointer}.card.preselect:hover{transform:translateY(-5px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
-.card.preselected{transform:translateY(-8px);box-shadow:0 4px 12px rgba(255,255,255,.15);border-color:rgba(255,255,255,.35);outline:2px dashed rgba(255,255,255,.3)}
+.card.preselected{transform:translateY(-14px);box-shadow:0 6px 18px rgba(79,195,247,.35),0 0 12px rgba(79,195,247,.2);border-color:#4fc3f7;outline:2px dashed #4fc3f7;background:#f0f8ff}
 .my-hand-area{display:flex;flex-direction:column;align-items:center;padding:6px 0 4px}
 .my-hand{display:flex;gap:8px;justify-content:center}.my-hand .card{width:64px;height:90px;font-size:1.2rem;border-radius:8px}.my-hand .card .suit{font-size:.9rem}
 .hand-rank-label{font-size:.8rem;font-weight:700;color:var(--gold-light);background:rgba(0,0,0,.6);padding:3px 12px;border-radius:6px;margin-top:4px}
@@ -217,6 +219,7 @@ document.addEventListener('click',()=>initAudio(),{once:true});
 // ========== WEBSOCKET ==========
 let ws=null, myId=null, myIdx=-1, isHost=false, roomCode='', gameState=null;
 let preselectedCards=new Set(), selectedBuyin=10000;
+let timerInterval=null, timerEnd=0, timerPlayerIdx=-1;
 
 function connect(){
   const proto=location.protocol==='https:'?'wss:':'ws:';
@@ -234,7 +237,8 @@ function connect(){
       case'toast':toast(msg.msg);break;
       case'sound':playSound(msg.sound);break;
       case'turn':if(msg.player===myIdx)playSound('turn');break;
-      case'roundEnd':showResult(msg);break;
+      case'timer':startClientTimer(msg.player,msg.remaining);break;
+      case'roundEnd':clearClientTimer();showResult(msg);break;
     }
   };
 }
@@ -262,10 +266,16 @@ function doExchange(){
 }
 function sendNext(){document.getElementById('result-modal').classList.remove('active');send({type:'nextRound'})}
 
+// ========== TIMER ==========
+function startClientTimer(playerIdx,remaining){clearClientTimer();timerPlayerIdx=playerIdx;timerEnd=Date.now()+remaining*1000;updateTimerDisplay();timerInterval=setInterval(updateTimerDisplay,1000)}
+function clearClientTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null}timerPlayerIdx=-1;document.querySelectorAll('.seat-timer').forEach(el=>el.remove())}
+function updateTimerDisplay(){const remaining=Math.max(0,Math.ceil((timerEnd-Date.now())/1000));if(remaining<=0){clearClientTimer();return}document.querySelectorAll('.seat-timer').forEach(el=>el.remove());if(!gameState||timerPlayerIdx<0)return;const sp=getSeatPos(gameState.players.length,gameState.myIndex);const seatPos=sp[timerPlayerIdx];const seatEl=document.querySelector(`.seat-${seatPos}`);if(!seatEl)return;const el=document.createElement('div');el.className=`seat-timer${remaining<=10?' warning':''}`;el.textContent=`⏱ ${remaining}s`;seatEl.insertBefore(el,seatEl.firstChild)}
+
 // ========== STATE HANDLER ==========
 function handleState(s){
   document.getElementById('result-modal').classList.remove('active');
   if(s.state==='waiting'){
+    clearClientTimer();
     showScreen('waiting-room');
     renderWaitingRoom(s);
   }else{
@@ -319,6 +329,7 @@ function renderGame(s){
   const ei=document.getElementById('exchange-info');
   if(s.phase==='exchange')ei.innerHTML=`<div class="exchange-round-text">${['🌅 아침','☀️ 점심','🌙 저녁'][s.exchangeRound-1]} - ${s.exchangeRound}차 교환</div><div>교환할 카드를 선택하세요</div>`;else ei.innerHTML='';
   updatePanel(s);
+  if(timerPlayerIdx>=0)updateTimerDisplay();
 }
 
 function renderMyHand(s){
