@@ -1,0 +1,12 @@
+{
+  "name": "badugi",
+  "version": "1.0.0",
+  "description": "바둑이 온라인 멀티플레이어",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

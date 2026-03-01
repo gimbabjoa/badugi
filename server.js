@@ -62,13 +62,13 @@ class Room {
   broadcast(msg) {
     const data = JSON.stringify(msg);
     this.players.forEach(p => {
-      if (p.ws && p.ws.readyState === 1) p.ws.send(data);
+      if (p.ws && p.ws.readyState === WebSocket.OPEN) p.ws.send(data);
     });
   }
 
   sendTo(playerIdx, msg) {
     const p = this.players[playerIdx];
-    if (p && p.ws && p.ws.readyState === 1) p.ws.send(JSON.stringify(msg));
+    if (p && p.ws && p.ws.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify(msg));
   }
 
   getPublicState(forPlayerIdx) {
@@ -412,137 +412,22 @@ const server = http.createServer((req, res) => {
   }
 });
 
-// ===== WEBSOCKET SERVER (manual handshake, no library) =====
-server.on('upgrade', (req, socket, head) => {
-  const key = req.headers['sec-websocket-key'];
-  const accept = crypto.createHash('sha1')
-    .update(key + '258EAFA5-E914-47DA-95CA-5AB5DC11E5A3')
-    .digest('base64');
+// ===== WEBSOCKET SERVER (ws library) =====
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ server });
 
-  socket.write(
-    'HTTP/1.1 101 Switching Protocols\r\n' +
-    'Upgrade: websocket\r\n' +
-    'Connection: Upgrade\r\n' +
-    `Sec-WebSocket-Accept: ${accept}\r\n` +
-    '\r\n'
-  );
-
-  const ws = new WebSocketConnection(socket);
+wss.on('connection', (ws) => {
   handleConnection(ws);
 });
-
-class WebSocketConnection {
-  constructor(socket) {
-    this.socket = socket;
-    this.readyState = 1; // OPEN
-    this.onmessage = null;
-    this.onclose = null;
-
-    let buffer = Buffer.alloc(0);
-    socket.on('data', (data) => {
-      buffer = Buffer.concat([buffer, data]);
-      while (buffer.length >= 2) {
-        const result = this.decodeFrame(buffer);
-        if (!result) break;
-        buffer = result.remaining;
-        if (result.opcode === 0x8) { // Close
-          this.readyState = 3;
-          socket.end();
-          if (this.onclose) this.onclose();
-          return;
-        }
-        if (result.opcode === 0x9) { // Ping
-          this.sendPong(result.payload);
-          continue;
-        }
-        if (result.payload && this.onmessage) {
-          this.onmessage({ data: result.payload.toString('utf8') });
-        }
-      }
-    });
-
-    socket.on('close', () => {
-      this.readyState = 3;
-      if (this.onclose) this.onclose();
-    });
-
-    socket.on('error', () => {
-      this.readyState = 3;
-      if (this.onclose) this.onclose();
-    });
-  }
-
-  decodeFrame(buf) {
-    if (buf.length < 2) return null;
-    const firstByte = buf[0];
-    const secondByte = buf[1];
-    const opcode = firstByte & 0x0f;
-    const masked = (secondByte & 0x80) !== 0;
-    let payloadLen = secondByte & 0x7f;
-    let offset = 2;
-
-    if (payloadLen === 126) {
-      if (buf.length < 4) return null;
-      payloadLen = buf.readUInt16BE(2);
-      offset = 4;
-    } else if (payloadLen === 127) {
-      if (buf.length < 10) return null;
-      payloadLen = Number(buf.readBigUInt64BE(2));
-      offset = 10;
-    }
-
-    if (masked) {
-      if (buf.length < offset + 4 + payloadLen) return null;
-      const mask = buf.slice(offset, offset + 4);
-      offset += 4;
-      const payload = buf.slice(offset, offset + payloadLen);
-      for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i % 4];
-      return { opcode, payload, remaining: buf.slice(offset + payloadLen) };
-    } else {
-      if (buf.length < offset + payloadLen) return null;
-      const payload = buf.slice(offset, offset + payloadLen);
-      return { opcode, payload, remaining: buf.slice(offset + payloadLen) };
-    }
-  }
-
-  send(data) {
-    if (this.readyState !== 1) return;
-    const payload = Buffer.from(data, 'utf8');
-    let header;
-    if (payload.length < 126) {
-      header = Buffer.alloc(2);
-      header[0] = 0x81; // FIN + text
-      header[1] = payload.length;
-    } else if (payload.length < 65536) {
-      header = Buffer.alloc(4);
-      header[0] = 0x81;
-      header[1] = 126;
-      header.writeUInt16BE(payload.length, 2);
-    } else {
-      header = Buffer.alloc(10);
-      header[0] = 0x81;
-      header[1] = 127;
-      header.writeBigUInt64BE(BigInt(payload.length), 2);
-    }
-    this.socket.write(Buffer.concat([header, payload]));
-  }
-
-  sendPong(payload) {
-    const header = Buffer.alloc(2);
-    header[0] = 0x8a; // FIN + pong
-    header[1] = payload.length;
-    this.socket.write(Buffer.concat([header, payload]));
-  }
-}
 
 // ===== CONNECTION HANDLER =====
 function handleConnection(ws) {
   let playerRoom = null;
   let playerId = null;
 
-  ws.onmessage = (event) => {
+  ws.on('message', (raw) => {
     let msg;
-    try { msg = JSON.parse(event.data); } catch { return; }
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
 
     switch (msg.type) {
       case 'create': {
@@ -603,7 +488,7 @@ function handleConnection(ws) {
     }
   };
 
-  ws.onclose = () => {
+  ws.on('close', () => {
     if (playerRoom && playerId) {
       const name = playerRoom.players.find(p => p.id === playerId)?.name || '?';
       const remaining = playerRoom.removePlayer(playerId);
